@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-slate-950 text-slate-100 font-body;
+    font-feature-settings: 'tnum' 1;
+  }
+  h1, h2, h3, h4 {
+    @apply font-display tracking-tight;
+  }
+  /* Tabular nums for scores/kickoffs */
+  .nums { font-variant-numeric: tabular-nums; }
+}
+
+@layer utilities {
+  .safe-top { padding-top: max(env(safe-area-inset-top), 0.75rem); }
+  .safe-bottom { padding-bottom: max(env(safe-area-inset-bottom), 0.75rem); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
