@@ -3,7 +3,12 @@ import { Loader2, Lock, Save, Clock } from 'lucide-react';
 import type { Match } from '@/data/sources/types';
 import { EMPTY_PICKS, type Member, type Picks, type StageKey } from '@/data/league/types';
 import { useSavePicks } from '@/data/league/queries';
-import { goldenBallCandidates, goldenBootCandidates } from '@/data/static/awards';
+import {
+  filterCandidatesToPool,
+  goldenBallCandidates,
+  goldenBootCandidates,
+  type AwardCandidate,
+} from '@/data/static/awards';
 import { teamFlag } from '@/data/static';
 import {
   leaguePool,
@@ -35,6 +40,10 @@ export function MyPicks({
   const me = members.find((m) => m.id === memberId);
   const saved: Picks = me?.picks ?? EMPTY_PICKS;
   const pool = useMemo(() => leaguePool(matches), [matches]);
+  // Candidates are filtered against the live pool so a stale JSON entry (team
+  // dropped out / mistyped) is hidden rather than shown wrongly.
+  const bootCandidates = useMemo(() => filterCandidatesToPool(goldenBootCandidates, pool), [pool]);
+  const ballCandidates = useMemo(() => filterCandidatesToPool(goldenBallCandidates, pool), [pool]);
   const now = new Date();
   const preStatus = stageStatus('reachR32', matches, now);
   const save = useSavePicks(code);
@@ -125,9 +134,11 @@ export function MyPicks({
           winner={winner}
           setWinner={(t) => { setDirty(true); setWinner((w) => (w === t ? null : t)); }}
           boot={boot}
-          setBoot={(n) => { setDirty(true); setBoot((b) => (b === n ? null : n)); }}
+          setBoot={(v) => { setDirty(true); setBoot(v); }}
           ball={ball}
-          setBall={(n) => { setDirty(true); setBall((b) => (b === n ? null : n)); }}
+          setBall={(v) => { setDirty(true); setBall(v); }}
+          bootCandidates={bootCandidates}
+          ballCandidates={ballCandidates}
           deadline={stageDeadlineUTC('reachR32', matches)}
         />
       )}
@@ -173,12 +184,14 @@ function PreTournamentEditor(props: {
   winner: string | null;
   setWinner: (t: string) => void;
   boot: string | null;
-  setBoot: (n: string) => void;
+  setBoot: (v: string | null) => void;
   ball: string | null;
-  setBall: (n: string) => void;
+  setBall: (v: string | null) => void;
+  bootCandidates: AwardCandidate[];
+  ballCandidates: AwardCandidate[];
   deadline: string | null;
 }) {
-  const { pool, eliminated, survivors, toggleEliminate, winner, setWinner, boot, setBoot, ball, setBall, deadline } = props;
+  const { pool, eliminated, survivors, toggleEliminate, winner, setWinner, boot, setBoot, ball, setBall, bootCandidates, ballCandidates, deadline } = props;
   return (
     <div className="flex flex-col gap-6">
       {deadline && (
@@ -192,11 +205,11 @@ function PreTournamentEditor(props: {
       <Section title="World Cup winner" hint="Pick one — worth the most points.">
         <TeamChipGrid teams={pool} selected={new Set(winner ? [winner] : [])} onToggle={setWinner} tone="positive" />
       </Section>
-      <Section title="Golden Boot" hint="Top scorer of the tournament.">
-        <PlayerChipList candidates={goldenBootCandidates} selected={boot} onSelect={setBoot} />
+      <Section title="Golden Boot" hint="Top scorer of the tournament. Not listed? Use “Other…”.">
+        <PlayerChipList candidates={bootCandidates} selected={boot} onChange={setBoot} />
       </Section>
-      <Section title="Golden Ball" hint="Best player of the tournament.">
-        <PlayerChipList candidates={goldenBallCandidates} selected={ball} onSelect={setBall} />
+      <Section title="Golden Ball" hint="Best player of the tournament. Not listed? Use “Other…”.">
+        <PlayerChipList candidates={ballCandidates} selected={ball} onChange={setBall} />
       </Section>
     </div>
   );

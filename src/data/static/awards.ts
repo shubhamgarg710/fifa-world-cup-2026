@@ -15,3 +15,14 @@ const candidates = candidatesFile as {
 
 export const goldenBootCandidates: AwardCandidate[] = candidates.goldenBoot;
 export const goldenBallCandidates: AwardCandidate[] = candidates.goldenBall;
+
+/**
+ * Keep only candidates whose team is actually in the qualified pool. The JSON
+ * is speculative and edited by hand — this makes the picker self-correcting if
+ * a country drops out or a name is mistyped. `pool` comes from
+ * `leaguePool(matches)` so the source of truth is always the live fixtures.
+ */
+export function filterCandidatesToPool(list: AwardCandidate[], pool: string[]): AwardCandidate[] {
+  const inPool = new Set(pool);
+  return list.filter((c) => inPool.has(c.team));
+}

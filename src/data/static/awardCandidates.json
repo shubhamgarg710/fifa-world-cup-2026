@@ -1,5 +1,5 @@
 {
-  "_note": "Curated candidate lists for the Golden Boot (top scorer) and Golden Ball (best player) pick selectors. Speculative pre-tournament rosters — edit freely. Golden Boot is scored from actual goal data regardless of this list; these are just suggested choices in the UI.",
+  "_note": "Curated candidate lists for the Golden Boot (top scorer) and Golden Ball (best player) pick selectors. Speculative pre-tournament rosters — edit freely. Candidates are ALSO filtered at render time against the actual qualified pool (teams in the openfootball group stage), so a stale entry here is hidden rather than shown wrongly. Golden Boot is scored from actual goal data regardless of this list; the 'Other…' free-text option is the real safety net for an unlisted breakout scorer.",
   "goldenBoot": [
     { "name": "Kylian Mbappé", "team": "France" },
     { "name": "Erling Haaland", "team": "Norway" },
@@ -16,12 +16,13 @@
     { "name": "Memphis Depay", "team": "Netherlands" },
     { "name": "Cody Gakpo", "team": "Netherlands" },
     { "name": "Romelu Lukaku", "team": "Belgium" },
-    { "name": "Victor Osimhen", "team": "Nigeria" },
     { "name": "Mohamed Salah", "team": "Egypt" },
     { "name": "Christian Pulisic", "team": "USA" },
     { "name": "Hirving Lozano", "team": "Mexico" },
-    { "name": "Dušan Vlahović", "team": "Serbia" },
-    { "name": "Aleksandar Mitrović", "team": "Serbia" },
+    { "name": "Sadio Mané", "team": "Senegal" },
+    { "name": "Breel Embolo", "team": "Switzerland" },
+    { "name": "Takefusa Kubo", "team": "Japan" },
+    { "name": "Hakim Ziyech", "team": "Morocco" },
     { "name": "Kai Havertz", "team": "Germany" },
     { "name": "Florian Wirtz", "team": "Germany" },
     { "name": "Phil Foden", "team": "England" }
@@ -49,6 +50,10 @@
     { "name": "Christian Pulisic", "team": "USA" },
     { "name": "Achraf Hakimi", "team": "Morocco" },
     { "name": "Mohamed Salah", "team": "Egypt" },
+    { "name": "Luka Modrić", "team": "Croatia" },
+    { "name": "Granit Xhaka", "team": "Switzerland" },
+    { "name": "Sadio Mané", "team": "Senegal" },
+    { "name": "Takefusa Kubo", "team": "Japan" },
     { "name": "Enzo Fernández", "team": "Argentina" },
     { "name": "Phil Foden", "team": "England" }
   ]
