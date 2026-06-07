@@ -26,6 +26,12 @@ A light fantasy layer: create a league, share a 6-char code, friends join with o
 auth), make a few big picks (group survivors, winner, Golden Boot, Golden Ball), and watch a
 live leaderboard scored automatically from results. Reached via the trophy icon in the header.
 
+As the tournament progresses, each knockout round unlocks its own pick (predict the 16 → 8 →
+4 → 2 who advance) once the previous round's teams are known, locking at that round's first
+kickoff. Everyone's picks stay private until a round's deadline, then reveal for banter. The
+league screen also shows a countdown to the next lock, the live Golden Boot leader, and a
+"what changed since your last visit" summary (rank moves, points gained, winner knocked out).
+
 **Setup (one-time):**
 1. Create a free [Supabase](https://supabase.com) project.
 2. In the SQL editor, run [`supabase/schema.sql`](supabase/schema.sql) (tables + open RLS policies).

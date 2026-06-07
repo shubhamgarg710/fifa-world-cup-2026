@@ -14,6 +14,10 @@ import { JoinCard } from './JoinCard';
 import { ShareCode } from './ShareCode';
 import { Leaderboard } from './Leaderboard';
 import { MyPicks } from './MyPicks';
+import { RevealPanel } from './RevealPanel';
+import { DeadlineBanner } from './DeadlineBanner';
+import { BootLeader } from './BootLeader';
+import { WhatChanged } from './WhatChanged';
 import { cn } from '../cn';
 
 export function LeagueScreen() {
@@ -71,13 +75,17 @@ export function LeagueScreen() {
 
   return (
     <LeagueShell title={leagueName} subtitle={`Playing as ${identity.displayName}`}>
-      <div className="mb-4">
+      <div className="mb-4 flex flex-col gap-3">
         <ShareCode code={code} />
+        <WhatChanged code={code} meId={identity.memberId} members={members.data ?? []} matches={matches} />
+        <DeadlineBanner matches={matches} />
+        <BootLeader matches={matches} />
       </div>
       <Tabs.Root defaultValue="standings">
         <Tabs.List className="mb-4 flex gap-1 border-b border-slate-900">
           <TabTrigger value="standings" label="Standings" />
           <TabTrigger value="mypicks" label="My picks" />
+          <TabTrigger value="reveal" label="Reveal" />
         </Tabs.List>
         <Tabs.Content value="standings">
           <Leaderboard
@@ -89,6 +97,9 @@ export function LeagueScreen() {
         </Tabs.Content>
         <Tabs.Content value="mypicks">
           <MyPicks code={code} memberId={identity.memberId} members={members.data ?? []} matches={matches} />
+        </Tabs.Content>
+        <Tabs.Content value="reveal">
+          <RevealPanel members={members.data ?? []} matches={matches} />
         </Tabs.Content>
       </Tabs.Root>
     </LeagueShell>

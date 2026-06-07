@@ -5,12 +5,15 @@ import { transformAll } from '@/data/sources/openFootball';
 import {
   champion,
   leaguePool,
+  nextLock,
   ROUND,
   realTeamsInRound,
   roundParticipantsKnown,
   stageDeadlineUTC,
   stageOpen,
   stagePool,
+  stageStatus,
+  teamStillAlive,
 } from './leagueStages';
 
 const before = new Date('2026-05-01T00:00:00Z');
@@ -102,5 +105,43 @@ describe('realTeamsInRound', () => {
   it('returns 2 real finalists for 2022', () => {
     const finalists = realTeamsInRound(matches2022, ROUND.FINAL);
     expect(finalists.sort()).toEqual(['Argentina', 'France']);
+  });
+});
+
+describe('stageStatus', () => {
+  it('pre-tournament reachR32 is editable before first kickoff', () => {
+    expect(stageStatus('reachR32', matches2026, before)).toBe('editable');
+  });
+  it('reachR32 is locked once the tournament has started', () => {
+    expect(stageStatus('reachR32', matches2026, new Date('2026-06-30T00:00:00Z'))).toBe('locked');
+  });
+  it('sequential 2026 stages are pending (placeholders unresolved)', () => {
+    expect(stageStatus('reachR16', matches2026, before)).toBe('pending');
+  });
+});
+
+describe('nextLock', () => {
+  it('before the tournament, the next lock is the pre-tournament (reachR32) deadline', () => {
+    const nl = nextLock(matches2026, before);
+    expect(nl?.stage).toBe('reachR32');
+    const all = matches2026.map((m) => m.kickoffUTC).sort();
+    expect(nl?.deadlineUTC).toBe(all[0]);
+  });
+  it('returns null once everything is locked', () => {
+    expect(nextLock(matches2026, new Date('2026-08-01T00:00:00Z'))).toBeNull();
+  });
+});
+
+describe('teamStillAlive', () => {
+  it('the 2022 champion (Argentina) is alive; the beaten finalist (France) is out', () => {
+    expect(teamStillAlive('Argentina', matches2022)).toBe(true);
+    expect(teamStillAlive('France', matches2022)).toBe(false);
+  });
+  it('a team eliminated earlier is out', () => {
+    // Brazil reached the 2022 quarter-finals but not the semis.
+    expect(teamStillAlive('Brazil', matches2022)).toBe(false);
+  });
+  it('every team is alive before any knockout is resolved (2026)', () => {
+    expect(teamStillAlive('Brazil', matches2026)).toBe(true);
   });
 });

@@ -124,6 +124,48 @@ export function stageLocked(stage: StageKey, matches: Match[], now: Date): boole
   return now.getTime() >= new Date(deadline).getTime();
 }
 
+export type StageStatus = 'editable' | 'locked' | 'pending';
+
+/**
+ * - editable: open for picks and deadline not passed
+ * - locked:   deadline passed (picks frozen / scored)
+ * - pending:  participants not yet known (can't pick)
+ */
+export function stageStatus(stage: StageKey, matches: Match[], now: Date): StageStatus {
+  if (stageLocked(stage, matches, now)) return 'locked';
+  if (!stageOpen(stage, matches)) return 'pending';
+  return 'editable';
+}
+
+/** The next stage that will lock (soonest future deadline), or null if none. */
+export function nextLock(matches: Match[], now: Date): { stage: StageKey; deadlineUTC: string } | null {
+  let best: { stage: StageKey; deadlineUTC: string } | null = null;
+  for (const def of STAGE_DEFS) {
+    const deadline = stageDeadlineUTC(def.key, matches);
+    if (!deadline) continue;
+    if (new Date(deadline).getTime() <= now.getTime()) continue; // already locked
+    if (!best || deadline < best.deadlineUTC) best = { stage: def.key, deadlineUTC: deadline };
+  }
+  return best;
+}
+
+/**
+ * Is a team still able to win? Out if the final is decided against them, or if
+ * the deepest round with known participants doesn't include them. Alive while
+ * still undetermined (e.g. group stage in progress).
+ */
+export function teamStillAlive(team: string, matches: Match[]): boolean {
+  const champ = champion(matches);
+  if (champ) return champ === team;
+  const deepestFirst = [ROUND.FINAL, ROUND.SF, ROUND.QF, ROUND.R16, ROUND.R32];
+  for (const round of deepestFirst) {
+    if (roundParticipantsKnown(matches, round)) {
+      return realTeamsInRound(matches, round).includes(team);
+    }
+  }
+  return true; // no knockout round resolved yet
+}
+
 /** Resolve the actual tournament winner from the Final match's score. */
 export function champion(matches: Match[]): string | null {
   const final = matchesInRound(matches, ROUND.FINAL).find((m) => m.score);
