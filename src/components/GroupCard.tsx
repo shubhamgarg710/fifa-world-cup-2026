@@ -5,17 +5,18 @@ import { teamFlag, teamRank } from '@/data/static';
 import { groupFixtures, type Group } from '@/logic/groups';
 import { formatLocalKickoff, formatLocalDateLabel } from '@/logic/time';
 import { myTeamsList, type MyTeams } from '@/logic/verdict';
-import { toggleTeam } from '@/state/preferences';
 import { cn } from './cn';
 
 export function GroupCard({
   group,
   matches,
   myTeams,
+  onOpenTeam,
 }: {
   group: Group;
   matches: Match[];
   myTeams: MyTeams;
+  onOpenTeam: (team: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const mine = new Set(myTeamsList(myTeams));
@@ -41,9 +42,8 @@ export function GroupCard({
             <li key={team}>
               <button
                 type="button"
-                onClick={() => toggleTeam(team, 'follow')}
-                aria-pressed={followed}
-                aria-label={followed ? `Unfollow ${team}` : `Follow ${team}`}
+                onClick={() => onOpenTeam(team)}
+                aria-label={`View ${team}`}
                 className="flex min-h-[40px] w-full cursor-pointer items-center gap-2 border-t border-slate-800/70 px-3 py-1.5 text-left transition-colors hover:bg-slate-900"
               >
                 <span className="text-base leading-none" aria-hidden>{teamFlag(team)}</span>

@@ -38,3 +38,15 @@ export function groupFixtures(matches: Match[], groupName: string): Match[] {
     .filter((m) => m.group === groupName)
     .sort((a, b) => new Date(a.kickoffUTC).getTime() - new Date(b.kickoffUTC).getTime());
 }
+
+/** A team's fixtures (group games pre-tournament), sorted by kickoff. */
+export function teamFixtures(matches: Match[], team: string): Match[] {
+  return matches
+    .filter((m) => m.team1 === team || m.team2 === team)
+    .sort((a, b) => new Date(a.kickoffUTC).getTime() - new Date(b.kickoffUTC).getTime());
+}
+
+/** The group a team belongs to, or undefined if it has no group-stage match. */
+export function teamGroup(matches: Match[], team: string): string | undefined {
+  return matches.find((m) => m.group && (m.team1 === team || m.team2 === team))?.group;
+}

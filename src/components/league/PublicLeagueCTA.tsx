@@ -37,7 +37,9 @@ export function PublicLeagueCTA() {
           Just want to play? Join the public league.
         </p>
         {count.data != null && count.data > 0 && (
-          <p className="text-xs text-slate-400">{count.data} members and counting</p>
+          <p className="text-xs text-slate-400">
+            {count.data} {count.data === 1 ? 'member' : 'members'} and counting
+          </p>
         )}
       </div>
       <ChevronRight className="h-5 w-5 shrink-0 text-slate-500" aria-hidden />

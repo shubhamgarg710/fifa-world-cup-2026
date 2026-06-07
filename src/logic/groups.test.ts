@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import realFile from '@/data/sources/__fixtures__/worldcup.json';
 import { transformAll } from '@/data/sources/openFootball';
 import { teamRank } from '@/data/static';
-import { deriveGroups, groupFixtures } from './groups';
+import { deriveGroups, groupFixtures, teamFixtures, teamGroup } from './groups';
 
 const matches = transformAll(realFile as never, new Date('2026-05-01T00:00:00Z'));
 
@@ -43,5 +43,28 @@ describe('groupFixtures', () => {
     expect(fixtures).toHaveLength(6);
     const times = fixtures.map((m) => m.kickoffUTC);
     expect(times).toEqual([...times].sort());
+  });
+});
+
+describe('teamFixtures', () => {
+  it('returns a team\'s 3 group games sorted by kickoff', () => {
+    const fixtures = teamFixtures(matches, 'Brazil');
+    expect(fixtures).toHaveLength(3);
+    for (const m of fixtures) expect(m.team1 === 'Brazil' || m.team2 === 'Brazil').toBe(true);
+    const times = fixtures.map((m) => m.kickoffUTC);
+    expect(times).toEqual([...times].sort());
+  });
+
+  it('returns [] for an unknown team', () => {
+    expect(teamFixtures(matches, 'Atlantis')).toEqual([]);
+  });
+});
+
+describe('teamGroup', () => {
+  it('returns the group a team belongs to', () => {
+    expect(teamGroup(matches, 'Brazil')).toBe('Group C');
+  });
+  it('returns undefined for an unknown team', () => {
+    expect(teamGroup(matches, 'Atlantis')).toBeUndefined();
   });
 });

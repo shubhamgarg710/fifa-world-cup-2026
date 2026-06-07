@@ -15,6 +15,7 @@ import { RecentSection } from './RecentSection';
 import { TodaySection } from './TodaySection';
 import { GroupsSection } from './GroupsSection';
 import { KickoffCountdown } from './KickoffCountdown';
+import { TeamSheet } from './TeamSheet';
 import { PublicLeagueCTA } from './league/PublicLeagueCTA';
 
 export function HomeScreen({
@@ -30,6 +31,7 @@ export function HomeScreen({
   const { data, isLoading, error, refetch, isRefetching } = useAllMatches();
   const tz = useMemo(() => deviceTimeZone(), []);
   const [now] = useState(() => new Date());
+  const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
 
   if (error) {
     return (
@@ -126,8 +128,12 @@ export function HomeScreen({
       </section>
 
       <section className="mb-6">
-        <SectionHeading title="Groups" subtitle="Tap a team to follow · tap a group for fixtures" />
-        {isLoading ? <SkeletonList /> : <GroupsSection matches={matches} myTeams={myTeams} />}
+        <SectionHeading title="Groups" subtitle="Tap a team for details · tap a group for fixtures" />
+        {isLoading ? (
+          <SkeletonList />
+        ) : (
+          <GroupsSection matches={matches} myTeams={myTeams} onOpenTeam={setSelectedTeam} />
+        )}
       </section>
 
       <section className="mb-6">
@@ -151,6 +157,13 @@ export function HomeScreen({
           <RecentSection recent={recent} myTeams={myTeams} onOpen={onOpenMatch} />
         )}
       </section>
+
+      <TeamSheet
+        team={selectedTeam}
+        matches={matches}
+        open={!!selectedTeam}
+        onOpenChange={(next) => !next && setSelectedTeam(null)}
+      />
     </div>
   );
 }
