@@ -4,7 +4,14 @@ import type { Match } from '@/data/sources/types';
 import type { Member } from '@/data/league/types';
 import { AWARDS } from '@/data/static/awards';
 import { rankMembers } from '@/logic/leagueScore';
+import { formatWeekday } from '@/logic/time';
 import { cn } from '../cn';
+
+function firstKickoffUTC(matches: Match[]): string | null {
+  let best: string | null = null;
+  for (const m of matches) if (best === null || m.kickoffUTC < best) best = m.kickoffUTC;
+  return best;
+}
 
 export function Leaderboard({
   members,
@@ -32,6 +39,37 @@ export function Leaderboard({
       <p className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/40 p-4 text-center text-sm text-slate-400">
         No members yet. Share the code to get friends in.
       </p>
+    );
+  }
+
+  // Before any result lands, everyone is on 0 and rank order is just join time —
+  // showing "1st" would read oddly. Show a friendly pre-results list instead.
+  const hasResults = matches.some((m) => m.status === 'finished');
+  if (!hasResults) {
+    const first = firstKickoffUTC(matches);
+    return (
+      <div className="flex flex-col gap-2">
+        <p className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/40 p-3 text-center text-sm text-slate-400">
+          No results yet — standings start {first ? formatWeekday(first) : 'at kickoff'}.
+        </p>
+        {ranked.map((row) => {
+          const isMe = row.member.id === meId;
+          return (
+            <div
+              key={row.member.id}
+              className={cn(
+                'flex items-center justify-between rounded-2xl border px-4 py-3',
+                isMe ? 'border-gold/40 bg-gradient-to-br from-gold/10 to-transparent' : 'border-slate-800 bg-slate-900/60',
+              )}
+            >
+              <span className={cn('truncate font-display text-lg font-semibold uppercase tracking-wide', isMe && 'text-gold')}>
+                {row.member.display_name}
+              </span>
+              <span className="text-xs text-slate-500">ready</span>
+            </div>
+          );
+        })}
+      </div>
     );
   }
 

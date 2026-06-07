@@ -1,13 +1,17 @@
 import { requireSupabase } from '@/data/supabase';
 import { setIdentity } from '@/state/leagueIdentity';
-import { generateCode, normalizeCode, normalizeName } from './codes';
+import { generateCode, normalizeCode, validateDisplayName } from './codes';
 import { EMPTY_PICKS, normalizePicks, type League, type Member, type Picks } from './types';
 
 const PG_UNIQUE_VIOLATION = '23505';
 
+export { DisplayNameError } from './codes';
+
 export class NameTakenError extends Error {
   constructor() {
-    super('That name is taken in this league — pick another.');
+    super(
+      "That name's already in this league — if that's you on another device, add a variant. Cross-device sync isn't supported yet.",
+    );
     this.name = 'NameTakenError';
   }
 }
@@ -27,7 +31,7 @@ export class LeagueNotFoundError extends Error {
 export async function createLeague(name: string, displayName: string): Promise<string> {
   const sb = requireSupabase();
   const cleanName = name.trim();
-  const cleanDisplay = normalizeName(displayName);
+  const cleanDisplay = validateDisplayName(displayName);
 
   let code = '';
   for (let attempt = 0; attempt < 6; attempt++) {
@@ -88,7 +92,7 @@ export async function countMembers(code: string): Promise<number> {
 export async function joinLeague(code: string, displayName: string): Promise<Member> {
   const sb = requireSupabase();
   const norm = normalizeCode(code);
-  const cleanDisplay = normalizeName(displayName);
+  const cleanDisplay = validateDisplayName(displayName);
 
   // Confirm the league exists first → distinct, clear error for a bad code.
   await getLeague(norm);

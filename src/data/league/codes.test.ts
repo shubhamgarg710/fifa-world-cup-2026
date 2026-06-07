@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   CODE_LENGTH,
+  DisplayNameError,
   generateCode,
   isWellFormedCode,
+  MAX_NAME,
   normalizeCode,
   normalizeName,
+  validateDisplayName,
 } from './codes';
 
 const AMBIGUOUS = ['0', 'O', '1', 'I', 'L'];
@@ -54,5 +57,19 @@ describe('normalizeName', () => {
 
   it("makes 'Alice' and 'Alice ' collide", () => {
     expect(normalizeName('Alice')).toBe(normalizeName('Alice '));
+  });
+});
+
+describe('validateDisplayName', () => {
+  it('throws on empty / whitespace-only', () => {
+    expect(() => validateDisplayName('   ')).toThrow(DisplayNameError);
+    expect(() => validateDisplayName('')).toThrow(DisplayNameError);
+  });
+  it('trims and collapses internal whitespace', () => {
+    expect(validateDisplayName(' Alice  B ')).toBe('Alice B');
+  });
+  it(`caps length at ${MAX_NAME}`, () => {
+    const long = 'x'.repeat(50);
+    expect(validateDisplayName(long)).toHaveLength(MAX_NAME);
   });
 });

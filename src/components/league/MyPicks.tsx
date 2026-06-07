@@ -17,7 +17,7 @@ import {
   stagePool,
   stageStatus,
 } from '@/logic/leagueStages';
-import { pickStatus, type PickStatus } from '@/logic/leagueScore';
+import { isReachR32Complete, pickStatus, type PickStatus } from '@/logic/leagueScore';
 import { formatLocalDateLabel, formatLocalKickoff } from '@/logic/time';
 import { TeamChipGrid } from './TeamChipGrid';
 import { PlayerChipList } from './PlayerChipList';
@@ -46,6 +46,7 @@ export function MyPicks({
   const ballCandidates = useMemo(() => filterCandidatesToPool(goldenBallCandidates, pool), [pool]);
   const now = new Date();
   const preStatus = stageStatus('reachR32', matches, now);
+  const preDeadline = stageDeadlineUTC('reachR32', matches);
   const save = useSavePicks(code);
 
   // Draft state. reachR32 is edited via an "eliminated" set (tap who goes home).
@@ -63,6 +64,7 @@ export function MyPicks({
     reachFinal: saved.reachFinal,
   });
   const [dirty, setDirty] = useState(false);
+  const [lockedMsg, setLockedMsg] = useState<string | null>(null);
 
   // Re-sync draft from saved when it changes and we haven't edited.
   useEffect(() => {
@@ -85,19 +87,31 @@ export function MyPicks({
 
   const survivors = pool.filter((t) => !eliminated.has(t));
 
-  const assemble = (): Picks => ({
-    ...saved,
-    reachR32: preStatus === 'editable' ? survivors : saved.reachR32,
-    reachR16: ko.reachR16,
-    reachQF: ko.reachQF,
-    reachSF: ko.reachSF,
-    reachFinal: ko.reachFinal,
-    winner: preStatus === 'editable' ? winner : saved.winner,
-    goldenBoot: preStatus === 'editable' ? boot : saved.goldenBoot,
-    goldenBall: preStatus === 'editable' ? ball : saved.goldenBall,
-  });
-
-  const onSave = () => save.mutate({ memberId, picks: assemble() }, { onSuccess: () => setDirty(false) });
+  // Re-derive locks at click time off a fresh clock — a stage that locked while
+  // the user was editing (or a skewed device clock) must not write past deadline.
+  const onSave = () => {
+    setLockedMsg(null);
+    const t = new Date();
+    const preLocked = stageStatus('reachR32', matches, t) === 'locked';
+    const koLocked = (s: StageKey) => stageStatus(s, matches, t) === 'locked';
+    const picks: Picks = {
+      ...saved,
+      reachR32: preLocked ? saved.reachR32 : survivors,
+      reachR16: koLocked('reachR16') ? saved.reachR16 : ko.reachR16,
+      reachQF: koLocked('reachQF') ? saved.reachQF : ko.reachQF,
+      reachSF: koLocked('reachSF') ? saved.reachSF : ko.reachSF,
+      reachFinal: koLocked('reachFinal') ? saved.reachFinal : ko.reachFinal,
+      winner: preLocked ? saved.winner : winner,
+      goldenBoot: preLocked ? saved.goldenBoot : boot,
+      goldenBall: preLocked ? saved.goldenBall : ball,
+    };
+    if (JSON.stringify(picks) === JSON.stringify(saved)) {
+      setLockedMsg("That stage locked while you were editing — your changes weren't saved.");
+      setDirty(false);
+      return;
+    }
+    save.mutate({ memberId, picks }, { onSuccess: () => setDirty(false) });
+  };
 
   const toggleEliminate = (team: string) => {
     setDirty(true);
@@ -124,7 +138,13 @@ export function MyPicks({
     <div className="flex flex-col gap-8">
       {/* ---- Pre-tournament group ---- */}
       {preStatus === 'locked' ? (
-        <PreTournamentLocked saved={saved} matches={matches} />
+        <PreTournamentLocked
+          saved={saved}
+          matches={matches}
+          joinedAfter={
+            !!me && !!preDeadline && me.created_at > preDeadline
+          }
+        />
       ) : (
         <PreTournamentEditor
           pool={pool}
@@ -154,6 +174,10 @@ export function MyPicks({
           selected={ko[stage]}
           savedPicks={saved[stage]}
           onToggle={(t) => toggleKo(stage, t)}
+          joinedAfter={(() => {
+            const d = stageDeadlineUTC(stage, matches);
+            return !!me && !!d && me.created_at > d;
+          })()}
         />
       ))}
 
@@ -169,6 +193,7 @@ export function MyPicks({
           {dirty ? 'Save picks' : 'Saved'}
         </button>
         {save.isError && <p className="mt-1 text-center text-xs text-verdict-must">Couldn't save — try again.</p>}
+        {lockedMsg && <p className="mt-1 text-center text-xs text-verdict-worth">{lockedMsg}</p>}
       </div>
     </div>
   );
@@ -200,6 +225,11 @@ function PreTournamentEditor(props: {
         </p>
       )}
       <Section title="Group survivors" hint={`Tap the teams you think go home. ${eliminated.size}/${ELIMINATE_TARGET} marked → ${survivors.length} survivors.`}>
+        {eliminated.size !== ELIMINATE_TARGET && (
+          <p className="mb-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-300">
+            Eliminate exactly {ELIMINATE_TARGET} — your survivors only score as a complete set of 32.
+          </p>
+        )}
         <TeamChipGrid teams={pool} selected={eliminated} onToggle={toggleEliminate} tone="negative" isDisabledTeam={() => eliminated.size >= ELIMINATE_TARGET} />
       </Section>
       <Section title="World Cup winner" hint="Pick one — worth the most points.">
@@ -223,6 +253,7 @@ function KnockoutStage({
   selected,
   savedPicks,
   onToggle,
+  joinedAfter,
 }: {
   stage: StageKey;
   matches: Match[];
@@ -231,6 +262,7 @@ function KnockoutStage({
   selected: string[];
   savedPicks: string[];
   onToggle: (t: string) => void;
+  joinedAfter: boolean;
 }) {
   const def = stageDef(stage);
   const deadline = stageDeadlineUTC(stage, matches);
@@ -254,7 +286,9 @@ function KnockoutStage({
         <h3 className="mb-1 flex items-center gap-2 font-display text-lg font-bold uppercase tracking-wide text-slate-50">
           <Lock className="h-3.5 w-3.5 text-slate-400" aria-hidden /> {def.label}
         </h3>
-        {savedPicks.length === 0 ? (
+        {joinedAfter ? (
+          <p className="text-sm text-slate-500">This closed before you joined — it scores 0 for you.</p>
+        ) : savedPicks.length === 0 ? (
           <p className="text-sm text-slate-500">No picks made for this round.</p>
         ) : (
           <StatusList teams={savedPicks} stage={stage} matches={matches} />
@@ -305,18 +339,36 @@ function StatusList({ teams, stage, matches }: { teams: string[]; stage: StageKe
   );
 }
 
-function PreTournamentLocked({ saved, matches }: { saved: Picks; matches: Match[] }) {
+function PreTournamentLocked({
+  saved,
+  matches,
+  joinedAfter,
+}: {
+  saved: Picks;
+  matches: Match[];
+  joinedAfter: boolean;
+}) {
   return (
     <div className="flex flex-col gap-6">
       <p className="inline-flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-xs text-slate-400">
-        <Lock className="h-3.5 w-3.5" aria-hidden /> Pre-tournament picks locked.
+        <Lock className="h-3.5 w-3.5" aria-hidden />{' '}
+        {joinedAfter
+          ? 'This closed before you joined — it scores 0 for you.'
+          : 'Pre-tournament picks locked.'}
       </p>
       <section>
         <h3 className="mb-2 font-display text-xl font-bold uppercase tracking-wide text-slate-50">Group survivors</h3>
         {saved.reachR32.length === 0 ? (
           <p className="text-sm text-slate-500">No survivors picked.</p>
         ) : (
-          <StatusList teams={saved.reachR32} stage="reachR32" matches={matches} />
+          <>
+            {!isReachR32Complete(saved) && (
+              <p className="mb-2 text-xs text-amber-300">
+                Incomplete set — survivors scored 0 (you didn't eliminate exactly 16).
+              </p>
+            )}
+            <StatusList teams={saved.reachR32} stage="reachR32" matches={matches} />
+          </>
         )}
       </section>
       <LockedLine label="Winner" value={saved.winner} flag />

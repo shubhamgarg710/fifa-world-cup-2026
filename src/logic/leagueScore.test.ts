@@ -33,10 +33,16 @@ function picks(p: Partial<Picks>): Picks {
   return { ...EMPTY_PICKS, ...p };
 }
 
+/** A complete 32-team survivors pick: the given teams + unique padding to 32. */
+function fullSurvivors(...include: string[]): string[] {
+  const pad = Array.from({ length: 32 - include.length }, (_, i) => `pad${i}`);
+  return [...include, ...pad];
+}
+
 describe('scoreMember — advancement tiers', () => {
-  it('awards reachR32 points per correct survivor', () => {
+  it('awards reachR32 points per correct survivor (complete set of 32)', () => {
     const { total, breakdown } = scoreMember(
-      picks({ reachR32: ['A', 'B', 'X'] }), // A,B reached R32; X did not
+      picks({ reachR32: fullSurvivors('A', 'B', 'X') }), // A,B reached R32; X + pads did not
       bracket(),
       NO_AWARDS,
     );
@@ -46,7 +52,7 @@ describe('scoreMember — advancement tiers', () => {
 
   it('awards reachR16 + reachR32 together', () => {
     const { breakdown } = scoreMember(
-      picks({ reachR32: ['A', 'C'], reachR16: ['A'] }),
+      picks({ reachR32: fullSurvivors('A', 'C'), reachR16: ['A'] }),
       bracket(),
       NO_AWARDS,
     );
@@ -58,6 +64,25 @@ describe('scoreMember — advancement tiers', () => {
     // No "Quarter-final" matches in the bracket → reachQF scores 0 even if picked.
     const { breakdown } = scoreMember(picks({ reachQF: ['A'] }), bracket(), NO_AWARDS);
     expect(breakdown.stages.find((s) => s.key === 'reachQF')!.hits).toBe(0);
+  });
+});
+
+describe('scoreMember — group-stage completeness gate', () => {
+  const r32hits = (reachR32: string[]) =>
+    scoreMember(picks({ reachR32 }), bracket(), NO_AWARDS).breakdown.stages.find((s) => s.key === 'reachR32')!.hits;
+
+  it('an incomplete survivors set (under 32) scores 0 even if picks advance', () => {
+    // 31 survivors including all 4 actual R32 teams — still 0 because it isn't a full set.
+    expect(r32hits(fullSurvivors('A', 'B', 'C', 'D').slice(0, 31))).toBe(0);
+  });
+
+  it('eliminating zero (all 48 → would be >32) scores 0', () => {
+    const fortyEight = Array.from({ length: 48 }, (_, i) => (i < 4 ? ['A', 'B', 'C', 'D'][i] : `t${i}`));
+    expect(r32hits(fortyEight)).toBe(0);
+  });
+
+  it('exactly 32 survivors scores its hits', () => {
+    expect(r32hits(fullSurvivors('A', 'B', 'C', 'D'))).toBe(4);
   });
 });
 
@@ -76,6 +101,15 @@ describe('scoreMember — winner / boot / ball', () => {
     const withGoals = bracket();
     withGoals[3] = { ...withGoals[3], goals1: [{ name: 'Striker', minute: 10 }] };
     const { breakdown } = scoreMember(picks({ goldenBoot: 'Striker' }), withGoals, NO_AWARDS);
+    expect(breakdown.goldenBoot).toBe(LEAGUE_SCORING.goldenBoot);
+  });
+
+  it('matches the boot pick accent-insensitively', () => {
+    const withGoals = bracket();
+    // openfootball records the scorer without the accent…
+    withGoals[3] = { ...withGoals[3], goals1: [{ name: 'Kylian Mbappe', minute: 10 }] };
+    // …the member picked the accented form.
+    const { breakdown } = scoreMember(picks({ goldenBoot: 'Kylian Mbappé' }), withGoals, NO_AWARDS);
     expect(breakdown.goldenBoot).toBe(LEAGUE_SCORING.goldenBoot);
   });
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Match } from '@/data/sources/types';
-import { scorerTallies, topScorers } from './goldenBoot';
+import { normalizeScorer, scorerTallies, topScorers } from './goldenBoot';
 
 function m(goals1: Match['goals1'], goals2: Match['goals2']): Match {
   return {
@@ -42,5 +42,15 @@ describe('goldenBoot tally', () => {
 
   it('handles no goals', () => {
     expect(topScorers([])).toEqual({ names: [], goals: 0 });
+  });
+});
+
+describe('normalizeScorer', () => {
+  it('is diacritic- and case-insensitive', () => {
+    expect(normalizeScorer('Kylian Mbappé')).toBe(normalizeScorer('kylian mbappe'));
+    expect(normalizeScorer('Vinícius Júnior')).toBe(normalizeScorer('Vinicius Junior'));
+  });
+  it('trims and collapses whitespace', () => {
+    expect(normalizeScorer('  Harry   Kane ')).toBe('harry kane');
   });
 });

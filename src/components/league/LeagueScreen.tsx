@@ -80,6 +80,11 @@ export function LeagueScreen() {
         <WhatChanged code={code} meId={identity.memberId} members={members.data ?? []} matches={matches} />
         <DeadlineBanner matches={matches} />
         <BootLeader matches={matches} />
+        {matches.some((m) => m.status === 'result_pending') && (
+          <p className="rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-xs text-slate-400">
+            Results updating… some finished matches haven't been scored by the data source yet.
+          </p>
+        )}
       </div>
       <Tabs.Root defaultValue="standings">
         <Tabs.List className="mb-4 flex gap-1 border-b border-slate-900">

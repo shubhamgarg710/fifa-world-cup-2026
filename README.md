@@ -51,6 +51,10 @@ else works normally.
 - **Golden Boot** is auto-derived from goal data. **Golden Ball** (not in match data) is set once
   in `src/data/static/awards.json` and redeployed at tournament end.
 - Supabase free tier **pauses after 7 days idle** — fine during the tournament's daily activity.
+- **Removing an offensive name** (the public league is open to anyone): in the Supabase dashboard,
+  **Table editor → `members`**, filter `league_code = WCUP26`, delete the offending row — or run
+  `delete from members where league_code='WCUP26' and display_name='…';` in the SQL editor. The
+  project owner/service-role bypasses RLS, so this always works even though the anon API can't delete.
 
 ## What it does
 

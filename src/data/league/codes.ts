@@ -31,3 +31,23 @@ export function isWellFormedCode(s: string): boolean {
 export function normalizeName(s: string): string {
   return s.trim().replace(/\s+/g, ' ');
 }
+
+export const MAX_NAME = 24;
+
+/**
+ * Normalize + validate a display name for insert. Rejects empty/whitespace-only
+ * (would create a blank member) and caps length (a pasted paragraph would wreck
+ * the leaderboard). Throws `DisplayNameError` on empty.
+ */
+export class DisplayNameError extends Error {
+  constructor(message = 'Enter a display name.') {
+    super(message);
+    this.name = 'DisplayNameError';
+  }
+}
+
+export function validateDisplayName(raw: string): string {
+  const clean = normalizeName(raw);
+  if (clean.length === 0) throw new DisplayNameError();
+  return clean.slice(0, MAX_NAME);
+}

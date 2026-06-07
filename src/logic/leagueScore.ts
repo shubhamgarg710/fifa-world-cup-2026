@@ -5,10 +5,16 @@
 import type { Match } from '@/data/sources/types';
 import type { Member, Picks, StageKey } from '@/data/league/types';
 import { LEAGUE_SCORING, type LeagueScoringConfig } from './leagueConfig';
-import { topScorers } from './goldenBoot';
+import { normalizeScorer, topScorers } from './goldenBoot';
 import { champion, realTeamsInRound, roundParticipantsKnown, STAGE_DEFS, stageDef } from './leagueStages';
 
 export type Awards = { goldenBall: string | null };
+
+/** Exactly 32 survivors (⇔ 16 eliminated) is the only group-stage set that scores. */
+export const REACH_R32_REQUIRED = 32;
+export function isReachR32Complete(picks: Picks): boolean {
+  return picks.reachR32.length === REACH_R32_REQUIRED;
+}
 
 const STAGE_POINTS: Record<StageKey, keyof LeagueScoringConfig> = {
   reachR32: 'reachR32',
@@ -61,7 +67,10 @@ export function scoreMember(
 
   for (const def of STAGE_DEFS) {
     const actual = new Set(realTeamsInRound(matches, def.actualRound));
-    const hits = actual.size === 0 ? 0 : stageHits(picks[def.key], actual);
+    // Group-stage integrity: the survivors pick only scores as a complete set
+    // of exactly 32 — otherwise under-eliminating banks free correct picks.
+    const incompleteR32 = def.key === 'reachR32' && !isReachR32Complete(picks);
+    const hits = actual.size === 0 || incompleteR32 ? 0 : stageHits(picks[def.key], actual);
     const points = hits * cfg[STAGE_POINTS[def.key]];
     stages.push({ key: def.key, hits, points });
     total += points;
@@ -75,7 +84,9 @@ export function scoreMember(
   total += winner;
 
   const boot = topScorers(matches);
-  const goldenBoot = picks.goldenBoot && boot.names.includes(picks.goldenBoot) ? cfg.goldenBoot : 0;
+  const bootNames = new Set(boot.names.map(normalizeScorer));
+  const goldenBoot =
+    picks.goldenBoot && bootNames.has(normalizeScorer(picks.goldenBoot)) ? cfg.goldenBoot : 0;
   total += goldenBoot;
 
   const goldenBall = awards.goldenBall && picks.goldenBall === awards.goldenBall ? cfg.goldenBall : 0;

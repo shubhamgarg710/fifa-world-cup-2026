@@ -7,6 +7,21 @@ import type { Match } from '@/data/sources/types';
 
 export type ScorerTally = { name: string; goals: number };
 
+/**
+ * Normalize a scorer name for matching: strip diacritics, lowercase, trim,
+ * collapse internal whitespace. Boot scoring is an exact match between a
+ * picked name and openfootball's scorer strings; the two sources may spell
+ * accents differently ("Mbappé" vs "Mbappe"), so we compare normalized.
+ */
+export function normalizeScorer(name: string): string {
+  return name
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
 /** Full descending tally of real goals by scorer name (own goals excluded). */
 export function scorerTallies(matches: Match[]): ScorerTally[] {
   const counts = new Map<string, number>();
