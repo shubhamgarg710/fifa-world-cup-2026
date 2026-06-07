@@ -3,6 +3,9 @@ import { OpenFootballAdapter } from './sources/openFootball';
 import { DemoAdapter } from './sources/demo';
 import type { Match, MatchDataSource } from './sources/types';
 
+/** How far back a "Recent" match can sit before it drops off the home screen. */
+export const RECENT_WINDOW_HOURS = 72;
+
 /** Demo mode: visit `?demo=1` to load shifted WC 2022 data. See `demo.ts` for removal steps. */
 function isDemoMode(): boolean {
   if (typeof window === 'undefined') return false;
@@ -23,7 +26,11 @@ export function setDataSource(source: MatchDataSource): void {
 export function useAllMatches() {
   return useQuery({
     queryKey: ['matches', 'all'],
-    queryFn: () => adapter.listAll(),
+    queryFn: async () => {
+      const matches = await adapter.listAll();
+      const offline = adapter.isOfflineFallback?.() ?? false;
+      return { matches, offline };
+    },
     staleTime: 60_000,
   });
 }
@@ -47,7 +54,7 @@ export function splitMatchesForToday(
   const recent: Match[] = [];
   const future: Match[] = [];
   const nowMs = now.getTime();
-  const cutoffMs = nowMs - 48 * 60 * 60 * 1000;
+  const cutoffMs = nowMs - RECENT_WINDOW_HOURS * 60 * 60 * 1000;
   for (const m of all) {
     const dayKey = toLocalDayKey(m.kickoffUTC);
     const kt = new Date(m.kickoffUTC).getTime();

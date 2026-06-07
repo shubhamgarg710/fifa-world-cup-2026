@@ -53,6 +53,12 @@ export interface MatchDataSource {
   getMatch(id: string): Promise<Match>;
   /** All matches in the tournament — useful for "next match day" lookups. */
   listAll(): Promise<Match[]>;
+  /**
+   * True if the most recent load fell back to a bundled offline snapshot
+   * because the live source was unreachable. Optional — adapters that never
+   * fall back can omit it.
+   */
+  isOfflineFallback?(): boolean;
 }
 
 /** lowercase, non-alphanumeric → `-`, collapsed. */

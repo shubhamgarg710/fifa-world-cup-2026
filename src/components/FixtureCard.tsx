@@ -1,6 +1,7 @@
 import { formatLocalKickoff, relativeCountdown } from '@/logic/time';
 import { prematchWatchability, type MyTeams, myTeamsList } from '@/logic/verdict';
 import { teamRank } from '@/data/static';
+import { isPlaceholderTeam } from '@/data/static/placeholders';
 import type { Match } from '@/data/sources/types';
 import { TeamRow } from './TeamRow';
 import { WatchabilityBadge } from './WatchabilityBadge';
@@ -10,9 +11,10 @@ export function FixtureCard({ match, myTeams }: { match: Match; myTeams: MyTeams
   const watch = prematchWatchability(match, myTeams, teamRank);
   const countdown = relativeCountdown(match.kickoffUTC);
   const kickoff = formatLocalKickoff(match.kickoffUTC);
+  const hasPlaceholder = isPlaceholderTeam(match.team1) || isPlaceholderTeam(match.team2);
   const mineSet = new Set(myTeamsList(myTeams));
-  const t1Mine = mineSet.has(match.team1);
-  const t2Mine = mineSet.has(match.team2);
+  const t1Mine = !hasPlaceholder && mineSet.has(match.team1);
+  const t2Mine = !hasPlaceholder && mineSet.has(match.team2);
   const isMine = t1Mine || t2Mine;
   return (
     <article
@@ -20,6 +22,11 @@ export function FixtureCard({ match, myTeams }: { match: Match; myTeams: MyTeams
         'relative overflow-hidden rounded-2xl border bg-slate-900/60 p-4 transition-colors',
         isMine ? 'border-gold/40 bg-gradient-to-br from-gold/5 to-transparent' : 'border-slate-800',
       )}
+      aria-label={
+        hasPlaceholder
+          ? `${match.round}: teams to be determined after group stage`
+          : undefined
+      }
     >
       {isMine && (
         <span

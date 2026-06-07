@@ -166,3 +166,22 @@ describe('OpenFootballAdapter — range filtering and lookup', () => {
     await expect(build().getMatch('nope')).rejects.toThrow();
   });
 });
+
+describe('OpenFootballAdapter — offline fallback', () => {
+  it('falls back to the bundled snapshot when the fetcher throws', async () => {
+    const failing = async () => {
+      throw new Error('network down');
+    };
+    const a = new OpenFootballAdapter('unused', failing, () => wellBeforeTournament);
+    const all = await a.listAll();
+    expect(all.length).toBe(104);
+    expect(a.isOfflineFallback()).toBe(true);
+  });
+
+  it('reports isOfflineFallback() === false on a successful load', async () => {
+    const ok = async () => realFile as never;
+    const a = new OpenFootballAdapter('unused', ok, () => wellBeforeTournament);
+    await a.listAll();
+    expect(a.isOfflineFallback()).toBe(false);
+  });
+});

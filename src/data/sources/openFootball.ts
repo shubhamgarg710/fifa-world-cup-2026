@@ -1,4 +1,5 @@
 import { parseKickoff } from '@/logic/time';
+import bundledSnapshot from './__fixtures__/worldcup.json';
 import {
   DateRange,
   Match,
@@ -99,6 +100,7 @@ export function transformAll(file: RawFile, now: Date = new Date()): Match[] {
 
 export class OpenFootballAdapter implements MatchDataSource {
   private cache: Match[] | null = null;
+  private offline = false;
   constructor(
     private readonly url: string = OPENFOOTBALL_URL,
     private readonly fetcher: Fetcher = defaultFetcher,
@@ -107,14 +109,30 @@ export class OpenFootballAdapter implements MatchDataSource {
 
   private async loadAll(): Promise<Match[]> {
     if (this.cache) return this.cache;
-    const file = await this.fetcher(this.url);
-    this.cache = transformAll(file, this.clock());
+    try {
+      const file = await this.fetcher(this.url);
+      this.cache = transformAll(file, this.clock());
+      this.offline = false;
+    } catch (err) {
+      // Network or parse error — fall back to the bundled snapshot so the
+      // morning recap never turns into a spinner. The UI surfaces a banner
+      // when `isOfflineFallback()` is true.
+      // eslint-disable-next-line no-console
+      console.warn('openfootball fetch failed, using bundled snapshot:', err);
+      this.cache = transformAll(bundledSnapshot as RawFile, this.clock());
+      this.offline = true;
+    }
     return this.cache;
   }
 
   /** Drop the in-memory cache (useful for manual refresh). */
   invalidate(): void {
     this.cache = null;
+    this.offline = false;
+  }
+
+  isOfflineFallback(): boolean {
+    return this.offline;
   }
 
   async listAll(): Promise<Match[]> {

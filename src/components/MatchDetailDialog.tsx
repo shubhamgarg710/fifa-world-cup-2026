@@ -2,6 +2,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import type { Match } from '@/data/sources/types';
 import { teamFlag } from '@/data/static';
+import { displayTeamName, isPlaceholderTeam } from '@/data/static/placeholders';
 import { useMyTeams } from '@/state/preferences';
 import { teamRank } from '@/data/static';
 import { postmatchVerdict, type MyTeams, myTeamsList } from '@/logic/verdict';
@@ -45,6 +46,7 @@ export function MatchDetailDialog({
 
 function DialogBody({ match, myTeams }: { match: Match; myTeams: MyTeams }) {
   const verdict = match.score ? postmatchVerdict(match, myTeams, teamRank) : null;
+  const hasPlaceholder = isPlaceholderTeam(match.team1) || isPlaceholderTeam(match.team2);
   const mineSet = new Set(myTeamsList(myTeams));
   const t1 = match.score?.ft[0];
   const t2 = match.score?.ft[1];
@@ -97,7 +99,12 @@ function DialogBody({ match, myTeams }: { match: Match; myTeams: MyTeams }) {
         </p>
       )}
 
-      <HighlightsButton match={match} />
+      {!hasPlaceholder && <HighlightsButton match={match} />}
+      {hasPlaceholder && (
+        <p className="text-center text-xs text-slate-500">
+          Highlights search will appear once both teams are confirmed.
+        </p>
+      )}
     </div>
   );
 }
@@ -115,18 +122,21 @@ function TeamBlock({
   mine?: boolean;
   alignRight?: boolean;
 }) {
+  const placeholder = isPlaceholderTeam(name);
+  const label = placeholder ? displayTeamName(name) : name;
   return (
     <div className={cn('flex flex-1 flex-col gap-1', alignRight && 'items-end', dim && 'opacity-60')}>
       <span className="text-3xl leading-none" aria-hidden>
-        {teamFlag(name)}
+        {placeholder ? '🏳️' : teamFlag(name)}
       </span>
       <span
         className={cn(
           'font-display text-base font-bold uppercase tracking-wide',
-          mine && 'text-gold',
+          mine && !placeholder && 'text-gold',
+          placeholder && 'italic font-medium text-slate-400 normal-case tracking-normal',
         )}
       >
-        {name}
+        {label}
       </span>
       {score != null && (
         <span className="nums font-display text-5xl font-bold tabular-nums text-slate-50">{score}</span>

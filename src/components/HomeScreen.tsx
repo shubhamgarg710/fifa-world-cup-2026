@@ -34,19 +34,22 @@ export function HomeScreen({
   }
 
   const todayKey = localDayKey(now, tz);
+  const matches = data?.matches ?? [];
+  const offline = data?.offline ?? false;
   const { today, recent, future } = useMemo(
     () =>
       splitMatchesForToday(
-        data ?? [],
+        matches,
         todayKey,
         (iso) => instantLocalDayKey(iso, tz),
         now,
       ),
-    [data, todayKey, tz, now],
+    [matches, todayKey, tz, now],
   );
   const nextKickoffUTC = future[0]?.kickoffUTC;
 
   const demo = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('demo') === '1';
+  const showBanner = demo || offline;
 
   return (
     <div className="mx-auto max-w-2xl px-4 pb-12">
@@ -55,7 +58,12 @@ export function HomeScreen({
           Demo mode · WC 2022 data shifted to today
         </div>
       )}
-      <header className={`sticky z-10 -mx-4 mb-4 flex items-center justify-between border-b border-slate-900 bg-slate-950/85 px-4 py-3 backdrop-blur ${demo ? 'top-0' : 'safe-top top-0'}`}>
+      {!demo && offline && (
+        <div className="safe-top -mx-4 mb-0 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-center text-[11px] font-semibold uppercase tracking-widest text-amber-300">
+          Showing offline schedule · pull to refresh
+        </div>
+      )}
+      <header className={`sticky z-10 -mx-4 mb-4 flex items-center justify-between border-b border-slate-900 bg-slate-950/85 px-4 py-3 backdrop-blur ${showBanner ? 'top-0' : 'safe-top top-0'}`}>
         <div>
           <h1 className="font-display text-2xl font-bold uppercase tracking-wider text-slate-50 leading-none">
             WC&nbsp;2026
