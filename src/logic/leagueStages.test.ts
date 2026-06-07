@@ -1,0 +1,106 @@
+import { describe, expect, it } from 'vitest';
+import realFile from '@/data/sources/__fixtures__/worldcup.json';
+import wc2022 from '@/data/sources/__fixtures__/worldcup-2022.json';
+import { transformAll } from '@/data/sources/openFootball';
+import {
+  champion,
+  leaguePool,
+  ROUND,
+  realTeamsInRound,
+  roundParticipantsKnown,
+  stageDeadlineUTC,
+  stageOpen,
+  stagePool,
+} from './leagueStages';
+
+const before = new Date('2026-05-01T00:00:00Z');
+const matches2026 = transformAll(realFile as never, before);
+
+// The 2022 fixture stores times without a UTC offset (e.g. "19:00"); all
+// matches were in Qatar (UTC+3). Append it so the strict parser accepts them.
+// (The DemoAdapter does the same at runtime.)
+const file2022 = wc2022 as { matches: { time: string }[] };
+const normalized2022 = {
+  ...file2022,
+  matches: file2022.matches.map((m) => ({
+    ...m,
+    time: /UTC[+-]/i.test(m.time) ? m.time : `${m.time} UTC+3`,
+  })),
+};
+// 2022 file is fully played → all knockout rounds carry real team names.
+const matches2022 = transformAll(normalized2022 as never, new Date('2023-01-01T00:00:00Z'));
+
+describe('leaguePool', () => {
+  it('is exactly the 48 group-stage teams (not the 54 in teams.json)', () => {
+    expect(leaguePool(matches2026)).toHaveLength(48);
+  });
+});
+
+describe('roundParticipantsKnown', () => {
+  it('is false for 2026 knockout rounds (placeholders like 1A / W73)', () => {
+    expect(roundParticipantsKnown(matches2026, ROUND.R32)).toBe(false);
+    expect(roundParticipantsKnown(matches2026, ROUND.FINAL)).toBe(false);
+  });
+
+  it('is true for 2022 knockout rounds (real teams filled in)', () => {
+    expect(roundParticipantsKnown(matches2022, ROUND.R16)).toBe(true);
+    expect(roundParticipantsKnown(matches2022, ROUND.FINAL)).toBe(true);
+  });
+});
+
+describe('stageOpen', () => {
+  it('pre-tournament reachR32 is always open', () => {
+    expect(stageOpen('reachR32', matches2026)).toBe(true);
+  });
+
+  it('sequential stages are closed for 2026 (placeholders)', () => {
+    expect(stageOpen('reachR16', matches2026)).toBe(false);
+    expect(stageOpen('reachFinal', matches2026)).toBe(false);
+  });
+
+  it('opens reachQF on 2022 data (its pool round "Round of 16" matches both formats)', () => {
+    // 2022 was a 32-team format → first KO is "Round of 16", so reachR16
+    // (pool = "Round of 32") legitimately stays closed.
+    expect(stageOpen('reachR16', matches2022)).toBe(false);
+    expect(stageOpen('reachQF', matches2022)).toBe(true);
+  });
+});
+
+describe('stagePool', () => {
+  it('reachR32 pool is the 48 teams', () => {
+    expect(stagePool('reachR32', matches2026)).toHaveLength(48);
+  });
+  it('reachR16 pool is empty until R32 participants are known', () => {
+    expect(stagePool('reachR16', matches2026)).toEqual([]);
+  });
+  it('reachR16 pool for 2022 is the 32 Round-of-32 teams', () => {
+    // 2022 had no Round of 32 (32-team format → Round of 16 is first KO).
+    // reachR16 reads its pool from "Round of 32"; 2022 has none, so empty.
+    expect(stagePool('reachR16', matches2022)).toEqual([]);
+    // reachQF reads from "Round of 16" → 16 teams in 2022.
+    expect(stagePool('reachQF', matches2022)).toHaveLength(16);
+  });
+});
+
+describe('stageDeadlineUTC', () => {
+  it('pre-tournament deadline is the earliest kickoff overall', () => {
+    const all = matches2026.map((m) => m.kickoffUTC).sort();
+    expect(stageDeadlineUTC('reachR32', matches2026)).toBe(all[0]);
+  });
+});
+
+describe('champion', () => {
+  it('resolves the 2022 winner (Argentina, on penalties)', () => {
+    expect(champion(matches2022)).toBe('Argentina');
+  });
+  it('is null for an unplayed 2026 final', () => {
+    expect(champion(matches2026)).toBeNull();
+  });
+});
+
+describe('realTeamsInRound', () => {
+  it('returns 2 real finalists for 2022', () => {
+    const finalists = realTeamsInRound(matches2022, ROUND.FINAL);
+    expect(finalists.sort()).toEqual(['Argentina', 'France']);
+  });
+});

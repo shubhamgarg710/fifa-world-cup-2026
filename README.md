@@ -6,17 +6,45 @@ Answers two questions every morning:
 1. **What's on today** (in your local time zone) and worth planning around?
 2. **Which finished games are worth chasing highlights for?**
 
-Static front-end. No backend. No accounts. No paid APIs.
+The "what to watch" core is a static front-end — no backend, no accounts, no paid APIs.
+An optional **prediction-league** layer (predict with friends) adds a Supabase backend; the
+Watch experience works fully without it.
 
 ## Quick start
 
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 71 tests, all pure-function or logic — no UI snapshots
+npm test           # 148 tests, all pure-function/logic — no UI snapshots
 npm run typecheck
 npm run build      # → dist/
 ```
+
+## Prediction league (optional)
+
+A light fantasy layer: create a league, share a 6-char code, friends join with one tap (no
+auth), make a few big picks (group survivors, winner, Golden Boot, Golden Ball), and watch a
+live leaderboard scored automatically from results. Reached via the trophy icon in the header.
+
+**Setup (one-time):**
+1. Create a free [Supabase](https://supabase.com) project.
+2. In the SQL editor, run [`supabase/schema.sql`](supabase/schema.sql) (tables + open RLS policies).
+3. Copy `.env.example` → `.env.local` and fill `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY`
+   (Settings → API → Project URL + anon public key). Set the same two vars in Vercel.
+
+Without those env vars, the league screens show a graceful "not set up" state and everything
+else works normally.
+
+**Notes & trust model:**
+- Leagues are **public** — anyone with the code can join. No passwords by design.
+- Scoring is 100% client-side (pure functions over results + a bundled FIFA snapshot). Supabase
+  only stores league/member rows.
+- RLS allows anonymous read/insert; the only anon-writable column is `members.picks`, so identity
+  and the leaderboard tiebreaker (`created_at`) can't be tampered with. A determined person could
+  still overwrite another member's *picks* or read picks early — acceptable for casual friends-play.
+- **Golden Boot** is auto-derived from goal data. **Golden Ball** (not in match data) is set once
+  in `src/data/static/awards.json` and redeployed at tournament end.
+- Supabase free tier **pauses after 7 days idle** — fine during the tournament's daily activity.
 
 ## What it does
 

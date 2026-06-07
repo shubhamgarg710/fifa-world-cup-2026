@@ -1,0 +1,4 @@
+{
+  "_note": "The Golden Ball (best player) is the only award not present in match data. Set it here after the final and redeploy. Golden Boot is auto-derived from goal data and is NOT stored here.",
+  "goldenBall": null
+}

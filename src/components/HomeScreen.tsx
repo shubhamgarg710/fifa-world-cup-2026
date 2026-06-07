@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Users } from 'lucide-react';
+import { Trophy, Users } from 'lucide-react';
 import type { Match } from '@/data/sources/types';
 import { splitMatchesForToday, useAllMatches } from '@/data/queries';
 import {
@@ -16,9 +16,11 @@ import { TodaySection } from './TodaySection';
 export function HomeScreen({
   onOpenMatch,
   onOpenTeams,
+  onOpenLeague,
 }: {
   onOpenMatch: (m: Match) => void;
   onOpenTeams: () => void;
+  onOpenLeague: () => void;
 }) {
   const myTeams = useMyTeams();
   const { data, isLoading, error, refetch, isRefetching } = useAllMatches();
@@ -72,14 +74,24 @@ export function HomeScreen({
             {formatLocalDateLabel(now.toISOString(), tz)} · {tz}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onOpenTeams}
-          className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border border-slate-800 bg-slate-900 text-slate-300 transition-colors hover:bg-slate-800 active:scale-95"
-          aria-label="Edit my teams"
-        >
-          <Users className="h-5 w-5" aria-hidden />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onOpenLeague}
+            className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border border-slate-800 bg-slate-900 text-slate-300 transition-colors hover:bg-slate-800 active:scale-95"
+            aria-label="Prediction leagues"
+          >
+            <Trophy className="h-5 w-5" aria-hidden />
+          </button>
+          <button
+            type="button"
+            onClick={onOpenTeams}
+            className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border border-slate-800 bg-slate-900 text-slate-300 transition-colors hover:bg-slate-800 active:scale-95"
+            aria-label="Edit my teams"
+          >
+            <Users className="h-5 w-5" aria-hidden />
+          </button>
+        </div>
       </header>
 
       <section className="mb-6">

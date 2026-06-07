@@ -1,5 +1,6 @@
 import type { Match } from '@/data/sources/types';
 import { teamRank } from '@/data/static';
+import { RECENT_WINDOW_HOURS } from '@/data/queries';
 import { isMyTeamMatch, postmatchVerdict, type MyTeams, type Label } from '@/logic/verdict';
 import { RecapCard } from './RecapCard';
 
@@ -35,7 +36,7 @@ export function RecentSection({
   if (recent.length === 0) {
     return (
       <p className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/40 p-4 text-center text-sm text-slate-400">
-        No finished matches in the last 48 hours.
+        No finished matches in the last {RECENT_WINDOW_HOURS} hours.
       </p>
     );
   }
