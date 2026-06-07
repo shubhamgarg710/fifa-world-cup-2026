@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import * as Tabs from '@radix-ui/react-tabs';
 import { Loader2 } from 'lucide-react';
 import { leagueEnabled } from '@/data/supabase';
@@ -19,13 +19,14 @@ import { cn } from '../cn';
 export function LeagueScreen() {
   const params = useParams<{ code: string }>();
   const code = normalizeCode(params.code ?? '');
-  if (!leagueEnabled) return <NotConfigured />;
-
+  // All hooks must run unconditionally (rules of hooks) — guard comes after.
+  const qc = useQueryClient();
   const league = useLeague(code);
   const identity = useLeagueIdentity(code);
   const members = useMembers(code);
   const matchesQ = useAllMatches();
-  const [, force] = useState(0);
+
+  if (!leagueEnabled) return <NotConfigured />;
 
   if (league.isLoading) {
     return (
@@ -57,7 +58,11 @@ export function LeagueScreen() {
   if (!identity) {
     return (
       <LeagueShell title={leagueName} subtitle={`Code ${code}`}>
-        <JoinCard code={code} leagueName={leagueName} onJoined={() => force((n) => n + 1)} />
+        <JoinCard
+          code={code}
+          leagueName={leagueName}
+          onJoined={() => qc.invalidateQueries({ queryKey: ['league-members', code] })}
+        />
       </LeagueShell>
     );
   }
