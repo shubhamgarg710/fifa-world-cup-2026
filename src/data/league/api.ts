@@ -73,6 +73,17 @@ export async function listMembers(code: string): Promise<Member[]> {
   return (data ?? []).map((m) => ({ ...m, picks: normalizePicks(m.picks) }) as Member);
 }
 
+/** Member count for a league — count only, never fetches the rows. */
+export async function countMembers(code: string): Promise<number> {
+  const sb = requireSupabase();
+  const { count, error } = await sb
+    .from('members')
+    .select('*', { count: 'exact', head: true })
+    .eq('league_code', normalizeCode(code));
+  if (error) throw error;
+  return count ?? 0;
+}
+
 /** Join an existing league. Throws LeagueNotFoundError / NameTakenError. */
 export async function joinLeague(code: string, displayName: string): Promise<Member> {
   const sb = requireSupabase();

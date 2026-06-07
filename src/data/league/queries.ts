@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { leagueEnabled } from '@/data/supabase';
-import { getLeague, listMembers, upsertMyPicks } from './api';
+import { countMembers, getLeague, listMembers, upsertMyPicks } from './api';
 import type { Picks } from './types';
 
 export function useLeague(code: string | undefined) {
@@ -17,6 +17,15 @@ export function useMembers(code: string | undefined) {
     queryKey: ['league-members', code],
     queryFn: () => listMembers(code!),
     enabled: !!code && leagueEnabled,
+  });
+}
+
+export function useMemberCount(code: string) {
+  return useQuery({
+    queryKey: ['league-member-count', code],
+    queryFn: () => countMembers(code),
+    enabled: leagueEnabled,
+    staleTime: 60_000,
   });
 }
 

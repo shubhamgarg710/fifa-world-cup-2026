@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import { Trophy, Users } from 'lucide-react';
 import type { Match } from '@/data/sources/types';
-import { splitMatchesForToday, useAllMatches } from '@/data/queries';
+import { selectBoard, splitMatchesForToday, useAllMatches } from '@/data/queries';
 import {
   deviceTimeZone,
   formatLocalDateLabel,
+  formatWeekday,
   instantLocalDayKey,
   localDayKey,
 } from '@/logic/time';
@@ -12,6 +13,9 @@ import { useMyTeams } from '@/state/preferences';
 import { DataErrorState } from './DataErrorState';
 import { RecentSection } from './RecentSection';
 import { TodaySection } from './TodaySection';
+import { GroupsSection } from './GroupsSection';
+import { KickoffCountdown } from './KickoffCountdown';
+import { PublicLeagueCTA } from './league/PublicLeagueCTA';
 
 export function HomeScreen({
   onOpenMatch,
@@ -38,17 +42,24 @@ export function HomeScreen({
   const todayKey = localDayKey(now, tz);
   const matches = data?.matches ?? [];
   const offline = data?.offline ?? false;
-  const { today, recent, future } = useMemo(
-    () =>
-      splitMatchesForToday(
-        matches,
-        todayKey,
-        (iso) => instantLocalDayKey(iso, tz),
-        now,
-      ),
-    [matches, todayKey, tz, now],
+  const toDayKey = useMemo(() => (iso: string) => instantLocalDayKey(iso, tz), [tz]);
+  const { recent, future } = useMemo(
+    () => splitMatchesForToday(matches, todayKey, toDayKey, now),
+    [matches, todayKey, toDayKey, now],
+  );
+  const board = useMemo(
+    () => selectBoard(matches, todayKey, toDayKey, now),
+    [matches, todayKey, toDayKey, now],
   );
   const nextKickoffUTC = future[0]?.kickoffUTC;
+  const todayTitle = board.isToday ? 'Today' : 'Up next';
+  const todaySubtitle = isLoading
+    ? 'Loading…'
+    : board.labelDateISO
+      ? board.isToday
+        ? formatLocalDateLabel(board.labelDateISO, tz)
+        : `${formatWeekday(board.labelDateISO, tz)}, ${formatLocalDateLabel(board.labelDateISO, tz)}`
+      : undefined;
 
   const demo = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('demo') === '1';
   const showBanner = demo || offline;
@@ -94,18 +105,29 @@ export function HomeScreen({
         </div>
       </header>
 
+      {!isLoading && <KickoffCountdown matches={matches} now={now} />}
+
       <section className="mb-6">
-        <SectionHeading title="Today" subtitle={isLoading ? 'Loading…' : undefined} />
+        <SectionHeading title={todayTitle} subtitle={todaySubtitle} />
         {isLoading ? (
           <SkeletonList />
         ) : (
           <TodaySection
-            today={today}
+            today={board.matches}
             myTeams={myTeams}
             nextKickoffUTC={nextKickoffUTC}
             onOpenMatch={onOpenMatch}
           />
         )}
+      </section>
+
+      <section className="mb-6">
+        <PublicLeagueCTA />
+      </section>
+
+      <section className="mb-6">
+        <SectionHeading title="Groups" subtitle="Tap a team to follow · tap a group for fixtures" />
+        {isLoading ? <SkeletonList /> : <GroupsSection matches={matches} myTeams={myTeams} />}
       </section>
 
       <section className="mb-6">

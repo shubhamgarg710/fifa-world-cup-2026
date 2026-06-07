@@ -47,3 +47,7 @@ create policy members_update on members for update using (true) with check (true
 -- (the leaderboard tiebreaker) — while keeping the no-auth model.
 revoke update on members from anon;
 grant  update (picks) on members to anon;
+
+-- Seed the single pinned, public league surfaced on the home screen. Idempotent.
+insert into leagues (code, name) values ('WCUP26', 'Public League')
+on conflict (code) do nothing;

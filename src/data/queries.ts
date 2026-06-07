@@ -70,5 +70,33 @@ export function splitMatchesForToday(
   today.sort((a, b) => new Date(a.kickoffUTC).getTime() - new Date(b.kickoffUTC).getTime());
   // sort recent by kickoff descending (most recent first; verdict re-sort happens in UI)
   recent.sort((a, b) => new Date(b.kickoffUTC).getTime() - new Date(a.kickoffUTC).getTime());
+  // sort future ascending so future[0] is genuinely the next kickoff
+  future.sort((a, b) => new Date(a.kickoffUTC).getTime() - new Date(b.kickoffUTC).getTime());
   return { today, recent, future };
+}
+
+/**
+ * Pick the board to show under "Today": today's fixtures if any, otherwise the
+ * next upcoming match day's fixtures. Keeps the section alive pre-tournament
+ * and across the group-stage → Round-of-32 gap with no special-casing.
+ */
+export function selectBoard(
+  all: Match[],
+  todayLocalKey: string,
+  toLocalDayKey: (iso: string) => string,
+  now: Date = new Date(),
+): { matches: Match[]; isToday: boolean; labelDateISO: string | null } {
+  const { today, future } = splitMatchesForToday(all, todayLocalKey, toLocalDayKey, now);
+  if (today.length > 0) {
+    return { matches: today, isToday: true, labelDateISO: now.toISOString() };
+  }
+  if (future.length > 0) {
+    const next = future[0]; // future is sorted ascending
+    const nextDayKey = toLocalDayKey(next.kickoffUTC);
+    const matches = future
+      .filter((m) => toLocalDayKey(m.kickoffUTC) === nextDayKey)
+      .sort((a, b) => new Date(a.kickoffUTC).getTime() - new Date(b.kickoffUTC).getTime());
+    return { matches, isToday: false, labelDateISO: next.kickoffUTC };
+  }
+  return { matches: [], isToday: true, labelDateISO: null };
 }

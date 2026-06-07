@@ -40,6 +40,11 @@ export function formatLocalKickoff(kickoffUTC: string, tz: string = deviceTimeZo
   }).format(new Date(kickoffUTC));
 }
 
+/** Full weekday name (e.g. "Thursday") in the given time zone. */
+export function formatWeekday(iso: string, tz: string = deviceTimeZone()): string {
+  return new Intl.DateTimeFormat(undefined, { timeZone: tz, weekday: 'long' }).format(new Date(iso));
+}
+
 /** "Mon, Jun 12" style local date label. */
 export function formatLocalDateLabel(iso: string, tz: string = deviceTimeZone()): string {
   return new Intl.DateTimeFormat(undefined, {
