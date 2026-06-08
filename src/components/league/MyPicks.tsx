@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Clock, Lock } from 'lucide-react';
+import { track } from '@vercel/analytics';
 import type { Match } from '@/data/sources/types';
 import { EMPTY_PICKS, type Member, type Picks, type StageKey } from '@/data/league/types';
 import { useSavePicks } from '@/data/league/queries';
@@ -112,7 +113,15 @@ export function MyPicks({
   const { status: saveStatus, lastSavedAt } = useAutoSavePicks(code, memberId, autoPicks, saved);
 
   const lockStage = (stage: StageKey) =>
-    save.mutate({ memberId, picks: buildPicks(stage) }, { onSuccess: () => setDirty(false) });
+    save.mutate(
+      { memberId, picks: buildPicks(stage) },
+      {
+        onSuccess: () => {
+          setDirty(false);
+          track('picks_locked', { stage });
+        },
+      },
+    );
 
   // reachR32 edit: 1–2 per group, ≤16 total. Toggling off always allowed.
   const toggleEliminate = (team: string) => {

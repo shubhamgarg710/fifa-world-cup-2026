@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Route, Routes, useNavigate } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
 import type { Match } from '@/data/sources/types';
 import { HomeScreen } from './components/HomeScreen';
 import { MatchDetailDialog } from './components/MatchDetailDialog';
@@ -31,11 +32,14 @@ function WatchPage() {
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/" element={<WatchPage />} />
-      <Route path="/league" element={<LeagueHub />} />
-      <Route path="/join" element={<JoinLeague />} />
-      <Route path="/l/:code" element={<LeagueScreen />} />
-    </Routes>
+    <>
+      <Routes>
+        <Route path="/" element={<WatchPage />} />
+        <Route path="/league" element={<LeagueHub />} />
+        <Route path="/join" element={<JoinLeague />} />
+        <Route path="/l/:code" element={<LeagueScreen />} />
+      </Routes>
+      <Analytics />
+    </>
   );
 }

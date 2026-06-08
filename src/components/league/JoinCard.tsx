@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { Loader2, LogIn } from 'lucide-react';
+import { track } from '@vercel/analytics';
 import { joinLeague, NameTakenError } from '@/data/league/api';
+import { normalizeCode } from '@/data/league/codes';
+import { PUBLIC_LEAGUE_CODE } from '@/data/league/constants';
 
 /** Name prompt shown when this device isn't yet a member of the league. */
 export function JoinCard({ code, leagueName, onJoined }: { code: string; leagueName: string; onJoined: () => void }) {
@@ -16,6 +19,7 @@ export function JoinCard({ code, leagueName, onJoined }: { code: string; leagueN
     setError(null);
     try {
       await joinLeague(code, name);
+      track('league_joined', { isPublic: normalizeCode(code) === PUBLIC_LEAGUE_CODE });
       onJoined();
     } catch (err) {
       setError(

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, Plus } from 'lucide-react';
+import { track } from '@vercel/analytics';
 import { createLeague } from '@/data/league/api';
 
 export function CreateLeague() {
@@ -19,6 +20,7 @@ export function CreateLeague() {
     setError(null);
     try {
       const code = await createLeague(name, displayName);
+      track('league_created');
       navigate(`/l/${code}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create the league.');
