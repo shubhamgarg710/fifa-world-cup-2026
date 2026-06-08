@@ -1,30 +1,25 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, Lock, Save, Clock } from 'lucide-react';
+import { Clock, Lock } from 'lucide-react';
 import type { Match } from '@/data/sources/types';
 import { EMPTY_PICKS, type Member, type Picks, type StageKey } from '@/data/league/types';
 import { useSavePicks } from '@/data/league/queries';
-import {
-  filterCandidatesToPool,
-  goldenBallCandidates,
-  goldenBootCandidates,
-  type AwardCandidate,
-} from '@/data/static/awards';
+import { filterCandidatesToPool, goldenBallCandidates, goldenBootCandidates } from '@/data/static/awards';
 import { teamFlag } from '@/data/static';
+import { deriveGroups } from '@/logic/groups';
+import { leaguePool, stageDeadlineUTC, stageDef, stagePool, stageStatus } from '@/logic/leagueStages';
+import { pickStatus, type PickStatus } from '@/logic/leagueScore';
 import {
-  leaguePool,
-  stageDeadlineUTC,
-  stageDef,
-  stagePool,
-  stageStatus,
-} from '@/logic/leagueStages';
-import { isReachR32Complete, pickStatus, type PickStatus } from '@/logic/leagueScore';
-import { formatLocalDateLabel, formatLocalKickoff } from '@/logic/time';
-import { TeamChipGrid } from './TeamChipGrid';
-import { PlayerChipList } from './PlayerChipList';
-import { ScoringInfo } from './ScoringInfo';
+  ELIMINATE_TARGET,
+  eliminatedFromSaved,
+  groupAtMax,
+  survivorsToReachR32,
+} from '@/logic/survivors';
+import { PreTournamentWizard } from './picks/PreTournamentWizard';
+import { KnockoutWizard } from './picks/KnockoutWizard';
+import { LockedSummary } from './picks/LockedSummary';
+import { useAutoSavePicks } from './picks/useAutoSavePicks';
 import { cn } from '../cn';
 
-const ELIMINATE_TARGET = 16; // 48 teams → mark 16 to go home → 32 survivors
 const KNOCKOUT_STAGES: StageKey[] = ['reachR16', 'reachQF', 'reachSF', 'reachFinal'];
 
 export function MyPicks({
@@ -41,21 +36,26 @@ export function MyPicks({
   const me = members.find((m) => m.id === memberId);
   const saved: Picks = me?.picks ?? EMPTY_PICKS;
   const pool = useMemo(() => leaguePool(matches), [matches]);
-  // Candidates are filtered against the live pool so a stale JSON entry (team
-  // dropped out / mistyped) is hidden rather than shown wrongly.
+  const groups = useMemo(() => deriveGroups(matches), [matches]);
   const bootCandidates = useMemo(() => filterCandidatesToPool(goldenBootCandidates, pool), [pool]);
   const ballCandidates = useMemo(() => filterCandidatesToPool(goldenBallCandidates, pool), [pool]);
-  const now = new Date();
+
+  // Live clock so the screen flips to read-only the moment a deadline passes.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
   const preStatus = stageStatus('reachR32', matches, now);
   const preDeadline = stageDeadlineUTC('reachR32', matches);
   const preManualLocked = saved.lockedStages.includes('reachR32');
-  const preLocked = preStatus === 'locked' || preManualLocked;
+  const preDeadlinePassed = preStatus === 'locked';
+  const preLocked = preDeadlinePassed || preManualLocked;
   const save = useSavePicks(code);
 
-  // Draft state. reachR32 is edited via an "eliminated" set (tap who goes home).
-  const initialEliminated = () =>
-    saved.reachR32.length > 0 ? new Set(pool.filter((t) => !saved.reachR32.includes(t))) : new Set<string>();
-  const [eliminated, setEliminated] = useState<Set<string>>(initialEliminated);
+  // Draft state, hydrated from saved.
+  const [eliminated, setEliminated] = useState<Set<string>>(() => eliminatedFromSaved(saved.reachR32, pool));
   const [winner, setWinner] = useState<string | null>(saved.winner);
   const [boot, setBoot] = useState<string | null>(saved.goldenBoot);
   const [ball, setBall] = useState<string | null>(saved.goldenBall);
@@ -67,13 +67,11 @@ export function MyPicks({
     reachFinal: saved.reachFinal,
   });
   const [dirty, setDirty] = useState(false);
-  const [lockedMsg, setLockedMsg] = useState<string | null>(null);
-  const [confirmingLock, setConfirmingLock] = useState<StageKey | null>(null);
 
-  // Re-sync draft from saved when it changes and we haven't edited.
+  // Re-hydrate from saved when it changes and we haven't started editing.
   useEffect(() => {
     if (dirty) return;
-    setEliminated(initialEliminated());
+    setEliminated(eliminatedFromSaved(saved.reachR32, pool));
     setWinner(saved.winner);
     setBoot(saved.goldenBoot);
     setBall(saved.goldenBall);
@@ -85,19 +83,16 @@ export function MyPicks({
       reachFinal: saved.reachFinal,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [me?.id, saved.winner, saved.goldenBoot, saved.goldenBall, pool.length, JSON.stringify(saved)]);
+  }, [me?.id, pool.length, JSON.stringify(saved)]);
 
-  if (pool.length === 0) return <p className="text-sm text-slate-400">Schedule not loaded yet.</p>;
+  const survivors = survivorsToReachR32(eliminated, pool);
 
-  const survivors = pool.filter((t) => !eliminated.has(t));
-
-  // A stage is frozen if its deadline passed (fresh clock) OR the member locked
-  // it manually. Frozen stages always write their saved value, never the draft.
+  // Lock-aware assembled picks: frozen stages (deadline passed / manually
+  // locked) always keep their saved value; never overwrite a locked stage.
   const buildPicks = (lockStage?: StageKey): Picks => {
     const t = new Date();
     const frozen = (s: StageKey) =>
       stageStatus(s, matches, t) === 'locked' || saved.lockedStages.includes(s);
-    const lockedStages = [...new Set([...saved.lockedStages, ...(lockStage ? [lockStage] : [])])];
     return {
       ...saved,
       reachR32: frozen('reachR32') ? saved.reachR32 : survivors,
@@ -108,33 +103,31 @@ export function MyPicks({
       winner: frozen('reachR32') ? saved.winner : winner,
       goldenBoot: frozen('reachR32') ? saved.goldenBoot : boot,
       goldenBall: frozen('reachR32') ? saved.goldenBall : ball,
-      lockedStages,
+      lockedStages: [...new Set([...saved.lockedStages, ...(lockStage ? [lockStage] : [])])],
     };
   };
 
-  const onSave = () => {
-    setLockedMsg(null);
-    const picks = buildPicks();
-    if (JSON.stringify(picks) === JSON.stringify(saved)) {
-      setLockedMsg("That stage locked while you were editing — your changes weren't saved.");
-      setDirty(false);
-      return;
-    }
-    save.mutate({ memberId, picks }, { onSuccess: () => setDirty(false) });
-  };
+  // Auto-save the (lock-aware) draft, debounced.
+  const autoPicks = buildPicks();
+  const { status: saveStatus, lastSavedAt } = useAutoSavePicks(code, memberId, autoPicks, saved);
 
-  // Manual lock: commit the current draft for a stage AND freeze it. Irreversible.
-  const lockStage = (stage: StageKey) => {
-    setConfirmingLock(null);
+  const lockStage = (stage: StageKey) =>
     save.mutate({ memberId, picks: buildPicks(stage) }, { onSuccess: () => setDirty(false) });
-  };
 
+  // reachR32 edit: 1–2 per group, ≤16 total. Toggling off always allowed.
   const toggleEliminate = (team: string) => {
     setDirty(true);
     setEliminated((prev) => {
       const next = new Set(prev);
-      if (next.has(team)) next.delete(team);
-      else if (next.size < ELIMINATE_TARGET) next.add(team);
+      if (next.has(team)) {
+        next.delete(team);
+        return next;
+      }
+      const group = groups.find((g) => g.teams.includes(team));
+      if (!group) return next;
+      if (next.size >= ELIMINATE_TARGET) return next; // global cap
+      if (groupAtMax(next, group)) return next; // per-group cap
+      next.add(team);
       return next;
     });
   };
@@ -145,282 +138,99 @@ export function MyPicks({
     setKo((prev) => {
       const cur = prev[stage];
       const has = cur.includes(team);
-      const next = has ? cur.filter((t) => t !== team) : cur.length < cap ? [...cur, team] : cur;
-      return { ...prev, [stage]: next };
+      const nextArr = has ? cur.filter((t) => t !== team) : cur.length < cap ? [...cur, team] : cur;
+      return { ...prev, [stage]: nextArr };
     });
   };
 
+  if (pool.length === 0) return <p className="text-sm text-slate-400">Schedule not loaded yet.</p>;
+
+  const draftPicks: Picks = {
+    ...saved,
+    reachR32: survivors,
+    reachR16: ko.reachR16,
+    reachQF: ko.reachQF,
+    reachSF: ko.reachSF,
+    reachFinal: ko.reachFinal,
+    winner,
+    goldenBoot: boot,
+    goldenBall: ball,
+  };
+
+  // --- Pre-tournament still open → the wizard is the whole screen ---
+  if (!preLocked) {
+    return (
+      <PreTournamentWizard
+        groups={groups}
+        matches={matches}
+        draftPicks={draftPicks}
+        saved={saved}
+        eliminated={eliminated}
+        onToggleEliminate={toggleEliminate}
+        winner={winner}
+        setWinner={(t) => { setDirty(true); setWinner((w) => (w === t ? null : t)); }}
+        boot={boot}
+        setBoot={(v) => { setDirty(true); setBoot(v); }}
+        bootCandidates={bootCandidates}
+        ball={ball}
+        setBall={(v) => { setDirty(true); setBall(v); }}
+        ballCandidates={ballCandidates}
+        onLock={() => lockStage('reachR32')}
+        locking={save.isPending}
+        saveStatus={saveStatus}
+        lastSavedAt={lastSavedAt}
+      />
+    );
+  }
+
+  // --- Pre-tournament locked → read-only recap + the knockout rounds ---
   return (
     <div className="flex flex-col gap-8">
-      <ScoringInfo />
+      <LockedSummary
+        picks={saved}
+        groups={groups}
+        matches={matches}
+        manuallyLocked={preManualLocked}
+        joinedAfter={!!me && !!preDeadline && me.created_at > preDeadline}
+        deadlinePassed={preDeadlinePassed}
+      />
 
-      {/* ---- Pre-tournament group ---- */}
-      {preLocked ? (
-        <PreTournamentLocked
-          saved={saved}
-          matches={matches}
-          manuallyLocked={preManualLocked}
-          joinedAfter={!!me && !!preDeadline && me.created_at > preDeadline}
-        />
-      ) : (
-        <PreTournamentEditor
-          pool={pool}
-          eliminated={eliminated}
-          survivors={survivors}
-          toggleEliminate={toggleEliminate}
-          winner={winner}
-          setWinner={(t) => { setDirty(true); setWinner((w) => (w === t ? null : t)); }}
-          boot={boot}
-          setBoot={(v) => { setDirty(true); setBoot(v); }}
-          ball={ball}
-          setBall={(v) => { setDirty(true); setBall(v); }}
-          bootCandidates={bootCandidates}
-          ballCandidates={ballCandidates}
-          deadline={stageDeadlineUTC('reachR32', matches)}
-          confirming={confirmingLock === 'reachR32'}
-          onLock={() => setConfirmingLock('reachR32')}
-          onConfirmLock={() => lockStage('reachR32')}
-          onCancelLock={() => setConfirmingLock(null)}
-        />
-      )}
-
-      {/* ---- Sequential knockout stages ---- */}
-      {KNOCKOUT_STAGES.map((stage) => (
-        <KnockoutStage
-          key={stage}
-          stage={stage}
-          matches={matches}
-          status={saved.lockedStages.includes(stage) ? 'locked' : stageStatus(stage, matches, now)}
-          manuallyLocked={saved.lockedStages.includes(stage)}
-          pool={stagePool(stage, matches)}
-          selected={ko[stage]}
-          savedPicks={saved[stage]}
-          onToggle={(t) => toggleKo(stage, t)}
-          confirming={confirmingLock === stage}
-          onLock={() => setConfirmingLock(stage)}
-          onConfirmLock={() => lockStage(stage)}
-          onCancelLock={() => setConfirmingLock(null)}
-          joinedAfter={(() => {
-            const d = stageDeadlineUTC(stage, matches);
-            return !!me && !!d && me.created_at > d;
-          })()}
-        />
-      ))}
-
-      {/* ---- Sticky save ---- */}
-      <div className="sticky bottom-3 z-10">
-        <button
-          type="button"
-          onClick={onSave}
-          disabled={save.isPending || !dirty}
-          className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-verdict-must px-5 py-3 font-display text-sm font-bold uppercase tracking-wider text-white shadow-lg transition-colors hover:bg-verdict-must/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Save className="h-4 w-4" aria-hidden />}
-          {dirty ? 'Save picks' : 'Saved'}
-        </button>
-        {save.isError && <p className="mt-1 text-center text-xs text-verdict-must">Couldn't save — try again.</p>}
-        {lockedMsg && <p className="mt-1 text-center text-xs text-verdict-worth">{lockedMsg}</p>}
-      </div>
+      {KNOCKOUT_STAGES.map((stage) => {
+        const status = saved.lockedStages.includes(stage) ? 'locked' : stageStatus(stage, matches, now);
+        if (status === 'pending') return <PendingCard key={stage} stage={stage} />;
+        if (status === 'locked') {
+          const d = stageDeadlineUTC(stage, matches);
+          return (
+            <KnockoutSummary
+              key={stage}
+              stage={stage}
+              matches={matches}
+              savedPicks={saved[stage]}
+              manuallyLocked={saved.lockedStages.includes(stage)}
+              joinedAfter={!!me && !!d && me.created_at > d}
+            />
+          );
+        }
+        return (
+          <KnockoutWizard
+            key={stage}
+            stage={stage}
+            matches={matches}
+            pool={stagePool(stage, matches)}
+            selected={ko[stage]}
+            onToggle={(t) => toggleKo(stage, t)}
+            onLock={() => lockStage(stage)}
+            locking={save.isPending}
+            saveStatus={saveStatus}
+            lastSavedAt={lastSavedAt}
+          />
+        );
+      })}
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-
-function PreTournamentEditor(props: {
-  pool: string[];
-  eliminated: Set<string>;
-  survivors: string[];
-  toggleEliminate: (t: string) => void;
-  winner: string | null;
-  setWinner: (t: string) => void;
-  boot: string | null;
-  setBoot: (v: string | null) => void;
-  ball: string | null;
-  setBall: (v: string | null) => void;
-  bootCandidates: AwardCandidate[];
-  ballCandidates: AwardCandidate[];
-  deadline: string | null;
-  confirming: boolean;
-  onLock: () => void;
-  onConfirmLock: () => void;
-  onCancelLock: () => void;
-}) {
-  const { pool, eliminated, survivors, toggleEliminate, winner, setWinner, boot, setBoot, ball, setBall, bootCandidates, ballCandidates, deadline, confirming, onLock, onConfirmLock, onCancelLock } = props;
-  return (
-    <div className="flex flex-col gap-6">
-      {deadline && (
-        <p className="rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-xs text-slate-400">
-          Pre-tournament picks lock {formatLocalDateLabel(deadline)} · {formatLocalKickoff(deadline)} (3-day grace window)
-        </p>
-      )}
-      <Section title="Group survivors" hint={`Tap the teams you think go home. ${eliminated.size}/${ELIMINATE_TARGET} marked → ${survivors.length} survivors.`}>
-        {eliminated.size !== ELIMINATE_TARGET && (
-          <p className="mb-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-300">
-            Eliminate exactly {ELIMINATE_TARGET} — your survivors only score as a complete set of 32.
-          </p>
-        )}
-        <TeamChipGrid teams={pool} selected={eliminated} onToggle={toggleEliminate} tone="negative" isDisabledTeam={() => eliminated.size >= ELIMINATE_TARGET} />
-      </Section>
-      <Section title="World Cup winner" hint="Pick one — worth the most points.">
-        <TeamChipGrid teams={pool} selected={new Set(winner ? [winner] : [])} onToggle={setWinner} tone="positive" />
-      </Section>
-      <Section title="Golden Boot" hint="Top scorer of the tournament. Not listed? Use “Other…”.">
-        <PlayerChipList candidates={bootCandidates} selected={boot} onChange={setBoot} />
-      </Section>
-      <Section title="Golden Ball" hint="Best player of the tournament. Not listed? Use “Other…”.">
-        <PlayerChipList candidates={ballCandidates} selected={ball} onChange={setBall} />
-      </Section>
-      <LockButton
-        confirming={confirming}
-        onLock={onLock}
-        onConfirmLock={onConfirmLock}
-        onCancelLock={onCancelLock}
-        label="Lock these predictions"
-      />
-    </div>
-  );
-}
-
-/** Irreversible lock control with an inline two-step confirm. */
-function LockButton({
-  confirming,
-  onLock,
-  onConfirmLock,
-  onCancelLock,
-  label,
-}: {
-  confirming: boolean;
-  onLock: () => void;
-  onConfirmLock: () => void;
-  onCancelLock: () => void;
-  label: string;
-}) {
-  if (confirming) {
-    return (
-      <div className="rounded-xl border border-gold/40 bg-gold/10 p-3">
-        <p className="mb-2 text-xs text-slate-300">This is final — you won't be able to change these picks afterwards.</p>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={onConfirmLock}
-            className="inline-flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-full bg-gold px-4 py-2.5 font-display text-sm font-bold uppercase tracking-wide text-slate-950 transition-colors hover:bg-gold/90 active:scale-[0.98]"
-          >
-            <Lock className="h-4 w-4" aria-hidden /> Confirm lock
-          </button>
-          <button
-            type="button"
-            onClick={onCancelLock}
-            className="cursor-pointer rounded-full border border-slate-700 bg-slate-900 px-4 py-2.5 font-display text-sm font-semibold uppercase tracking-wide text-slate-300 transition-colors hover:bg-slate-800"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    );
-  }
-  return (
-    <button
-      type="button"
-      onClick={onLock}
-      className="inline-flex cursor-pointer items-center justify-center gap-2 self-start rounded-full border border-slate-700 bg-slate-900 px-4 py-2.5 font-display text-sm font-semibold uppercase tracking-wide text-slate-200 transition-colors hover:bg-slate-800 active:scale-95"
-    >
-      <Lock className="h-4 w-4" aria-hidden /> {label}
-    </button>
-  );
-}
-
-function KnockoutStage({
-  stage,
-  matches,
-  status,
-  manuallyLocked,
-  pool,
-  selected,
-  savedPicks,
-  onToggle,
-  joinedAfter,
-  confirming,
-  onLock,
-  onConfirmLock,
-  onCancelLock,
-}: {
-  stage: StageKey;
-  matches: Match[];
-  status: 'editable' | 'locked' | 'pending';
-  manuallyLocked: boolean;
-  pool: string[];
-  selected: string[];
-  savedPicks: string[];
-  onToggle: (t: string) => void;
-  joinedAfter: boolean;
-  confirming: boolean;
-  onLock: () => void;
-  onConfirmLock: () => void;
-  onCancelLock: () => void;
-}) {
-  const def = stageDef(stage);
-  const deadline = stageDeadlineUTC(stage, matches);
-
-  if (status === 'pending') {
-    return (
-      <section className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/30 p-4">
-        <h3 className="flex items-center gap-2 font-display text-lg font-bold uppercase tracking-wide text-slate-500">
-          <Clock className="h-4 w-4" aria-hidden /> {def.label}
-        </h3>
-        <p className="mt-1 text-xs text-slate-500">
-          Opens once the {def.poolRound} line-up is confirmed (pick {def.pick} to advance).
-        </p>
-      </section>
-    );
-  }
-
-  if (status === 'locked') {
-    return (
-      <section>
-        <h3 className="mb-1 flex items-center gap-2 font-display text-lg font-bold uppercase tracking-wide text-slate-50">
-          <Lock className="h-3.5 w-3.5 text-slate-400" aria-hidden /> {def.label}
-        </h3>
-        {manuallyLocked && <p className="mb-2 text-xs text-slate-400">You locked this round — final.</p>}
-        {joinedAfter ? (
-          <p className="text-sm text-slate-500">This closed before you joined — it scores 0 for you.</p>
-        ) : savedPicks.length === 0 ? (
-          <p className="text-sm text-slate-500">No picks made for this round.</p>
-        ) : (
-          <StatusList teams={savedPicks} stage={stage} matches={matches} />
-        )}
-      </section>
-    );
-  }
-
-  // editable
-  const cap = def.pick;
-  return (
-    <Section
-      title={def.label}
-      hint={`Pick the ${cap} teams you think advance. ${selected.length}/${cap} chosen.${deadline ? ` Locks ${formatLocalDateLabel(deadline)} · ${formatLocalKickoff(deadline)}.` : ''}`}
-    >
-      <TeamChipGrid
-        teams={pool}
-        selected={new Set(selected)}
-        onToggle={onToggle}
-        tone="positive"
-        isDisabledTeam={() => selected.length >= cap}
-      />
-      <div className="mt-3">
-        <LockButton
-          confirming={confirming}
-          onLock={onLock}
-          onConfirmLock={onConfirmLock}
-          onCancelLock={onCancelLock}
-          label={`Lock ${def.label.toLowerCase()}`}
-        />
-      </div>
-    </Section>
-  );
-}
-
-// ---------------------------------------------------------------------------
+// --- read-only / pending knockout sections ---------------------------------
 
 const STATUS_STYLE: Record<PickStatus, string> = {
   correct: 'text-verdict-worth',
@@ -428,89 +238,54 @@ const STATUS_STYLE: Record<PickStatus, string> = {
   alive: 'text-slate-200',
 };
 
-function StatusList({ teams, stage, matches }: { teams: string[]; stage: StageKey; matches: Match[] }) {
-  return (
-    <ul className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-      {teams.map((t) => {
-        const status = pickStatus(t, stage, matches);
-        return (
-          <li key={t} className={cn('flex items-center gap-2 text-sm', STATUS_STYLE[status])}>
-            <span aria-hidden>{teamFlag(t)}</span>
-            <span className="truncate font-display font-semibold uppercase tracking-wide">{t}</span>
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
-
-function PreTournamentLocked({
-  saved,
+function KnockoutSummary({
+  stage,
   matches,
+  savedPicks,
   manuallyLocked,
   joinedAfter,
 }: {
-  saved: Picks;
+  stage: StageKey;
   matches: Match[];
+  savedPicks: string[];
   manuallyLocked: boolean;
   joinedAfter: boolean;
 }) {
-  return (
-    <div className="flex flex-col gap-6">
-      <p className="inline-flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-xs text-slate-400">
-        <Lock className="h-3.5 w-3.5" aria-hidden />{' '}
-        {joinedAfter
-          ? 'This closed before you joined — it scores 0 for you.'
-          : manuallyLocked
-            ? 'You locked these predictions — final.'
-            : 'Pre-tournament picks locked.'}
-      </p>
-      <section>
-        <h3 className="mb-2 font-display text-xl font-bold uppercase tracking-wide text-slate-50">Group survivors</h3>
-        {saved.reachR32.length === 0 ? (
-          <p className="text-sm text-slate-500">No survivors picked.</p>
-        ) : (
-          <>
-            {!isReachR32Complete(saved) && (
-              <p className="mb-2 text-xs text-amber-300">
-                Incomplete set — survivors scored 0 (you didn't eliminate exactly 16).
-              </p>
-            )}
-            <StatusList teams={saved.reachR32} stage="reachR32" matches={matches} />
-          </>
-        )}
-      </section>
-      <LockedLine label="Winner" value={saved.winner} flag />
-      <LockedLine label="Golden Boot" value={saved.goldenBoot} />
-      <LockedLine label="Golden Ball" value={saved.goldenBall} />
-    </div>
-  );
-}
-
-function LockedLine({ label, value, flag }: { label: string; value: string | null; flag?: boolean }) {
+  const def = stageDef(stage);
   return (
     <section>
-      <h3 className="font-display text-sm font-semibold uppercase tracking-widest text-slate-400">{label}</h3>
-      <p className="mt-0.5 font-display text-lg font-semibold uppercase tracking-wide text-slate-100">
-        {value ? (
-          <>
-            {flag && <span className="mr-2" aria-hidden>{teamFlag(value)}</span>}
-            {value}
-          </>
-        ) : (
-          <span className="text-slate-600">—</span>
-        )}
-      </p>
+      <h3 className="mb-1 flex items-center gap-2 font-display text-lg font-bold uppercase tracking-wide text-slate-50">
+        <Lock className="h-3.5 w-3.5 text-slate-400" aria-hidden /> {def.label}
+      </h3>
+      {manuallyLocked && <p className="mb-2 text-xs text-slate-400">You locked this round — final.</p>}
+      {joinedAfter ? (
+        <p className="text-sm text-slate-500">This closed before you joined — it scores 0 for you.</p>
+      ) : savedPicks.length === 0 ? (
+        <p className="text-sm text-slate-500">No picks made for this round.</p>
+      ) : (
+        <ul className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+          {savedPicks.map((t) => (
+            <li key={t} className={cn('flex items-center gap-2 text-sm', STATUS_STYLE[pickStatus(t, stage, matches)])}>
+              <span aria-hidden>{teamFlag(t)}</span>
+              <span className="truncate font-display font-semibold uppercase tracking-wide">{t}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }
 
-function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+function PendingCard({ stage }: { stage: StageKey }) {
+  const def = stageDef(stage);
   return (
-    <section>
-      <h3 className="font-display text-xl font-bold uppercase tracking-wide text-slate-50">{title}</h3>
-      {hint && <p className="mb-3 text-xs text-slate-400">{hint}</p>}
-      {children}
+    <section className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/30 p-4">
+      <h3 className="flex items-center gap-2 font-display text-lg font-bold uppercase tracking-wide text-slate-500">
+        <Clock className="h-4 w-4" aria-hidden /> {def.label}
+      </h3>
+      <p className="mt-1 text-xs text-slate-500">
+        Opens once the {def.poolRound} line-up is confirmed (pick {def.pick} to advance).
+      </p>
     </section>
   );
 }
