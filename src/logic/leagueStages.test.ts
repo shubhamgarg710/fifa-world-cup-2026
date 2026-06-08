@@ -6,6 +6,7 @@ import {
   champion,
   leaguePool,
   nextLock,
+  PRE_TOURNAMENT_LOCK_UTC,
   ROUND,
   realTeamsInRound,
   roundParticipantsKnown,
@@ -85,10 +86,9 @@ describe('stagePool', () => {
   });
 });
 
-describe('stageDeadlineUTC', () => {
-  it('pre-tournament deadline is the earliest kickoff overall', () => {
-    const all = matches2026.map((m) => m.kickoffUTC).sort();
-    expect(stageDeadlineUTC('reachR32', matches2026)).toBe(all[0]);
+describe('stageDeadlineUTC (legacy block)', () => {
+  it('pre-tournament deadline is the fixed June 14 grace deadline', () => {
+    expect(stageDeadlineUTC('reachR32', matches2026)).toBe(PRE_TOURNAMENT_LOCK_UTC);
   });
 });
 
@@ -109,11 +109,12 @@ describe('realTeamsInRound', () => {
 });
 
 describe('stageStatus', () => {
-  it('pre-tournament reachR32 is editable before first kickoff', () => {
+  it('pre-tournament reachR32 is editable through the June 14 grace deadline', () => {
     expect(stageStatus('reachR32', matches2026, before)).toBe('editable');
+    expect(stageStatus('reachR32', matches2026, new Date('2026-06-13T12:00:00Z'))).toBe('editable');
   });
-  it('reachR32 is locked once the tournament has started', () => {
-    expect(stageStatus('reachR32', matches2026, new Date('2026-06-30T00:00:00Z'))).toBe('locked');
+  it('reachR32 is locked after the June 14 deadline', () => {
+    expect(stageStatus('reachR32', matches2026, new Date('2026-06-15T00:00:00Z'))).toBe('locked');
   });
   it('sequential 2026 stages are pending (placeholders unresolved)', () => {
     expect(stageStatus('reachR16', matches2026, before)).toBe('pending');
@@ -124,8 +125,7 @@ describe('nextLock', () => {
   it('before the tournament, the next lock is the pre-tournament (reachR32) deadline', () => {
     const nl = nextLock(matches2026, before);
     expect(nl?.stage).toBe('reachR32');
-    const all = matches2026.map((m) => m.kickoffUTC).sort();
-    expect(nl?.deadlineUTC).toBe(all[0]);
+    expect(nl?.deadlineUTC).toBe(PRE_TOURNAMENT_LOCK_UTC);
   });
   it('returns null once everything is locked', () => {
     expect(nextLock(matches2026, new Date('2026-08-01T00:00:00Z'))).toBeNull();

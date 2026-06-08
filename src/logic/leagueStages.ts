@@ -28,6 +28,15 @@ export const ROUND = {
   FINAL: 'Final',
 } as const;
 
+/**
+ * Pre-tournament picks (group survivors + winner + boot + ball) stay editable
+ * through the end of June 14 — a 3-day grace window past the June 11 opener so
+ * latecomers can still enter. Anchored to 23:59:59 IST (the league owner's tz),
+ * which reads as "June 14" for IST and all Western time zones. Knockout stages
+ * lock at their own kickoffs.
+ */
+export const PRE_TOURNAMENT_LOCK_UTC = '2026-06-14T18:29:59Z';
+
 export type StageDef = {
   key: StageKey;
   label: string;
@@ -113,7 +122,10 @@ const minKickoff = (ms: Match[]): string | null => {
  */
 export function stageDeadlineUTC(stage: StageKey, matches: Match[]): string | null {
   const def = stageDef(stage);
-  if (def.preTournament) return minKickoff(matches);
+  // Pre-tournament picks get a fixed grace deadline (3 days past the opener) so
+  // latecomers can still enter — see PRE_TOURNAMENT_LOCK_UTC. Note: group games
+  // begin June 11, so edits on the 12th–14th see partial results (accepted).
+  if (def.preTournament) return PRE_TOURNAMENT_LOCK_UTC;
   // Predicting reachR16 means predicting Round-of-32 winners → lock at first R32 KO.
   return minKickoff(matchesInRound(matches, def.poolRound!));
 }

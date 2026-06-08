@@ -5,6 +5,7 @@ import type { Member } from '@/data/league/types';
 import { AWARDS } from '@/data/static/awards';
 import { rankMembers } from '@/logic/leagueScore';
 import { formatWeekday } from '@/logic/time';
+import { ScoringInfo } from './ScoringInfo';
 import { cn } from '../cn';
 
 function firstKickoffUTC(matches: Match[]): string | null {
@@ -49,6 +50,7 @@ export function Leaderboard({
     const first = firstKickoffUTC(matches);
     return (
       <div className="flex flex-col gap-2">
+        <ScoringInfo />
         <p className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/40 p-3 text-center text-sm text-slate-400">
           No results yet — standings start {first ? formatWeekday(first) : 'at kickoff'}.
         </p>
@@ -74,7 +76,9 @@ export function Leaderboard({
   }
 
   return (
-    <ol className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2">
+      <ScoringInfo />
+      <ol className="flex flex-col gap-2">
       {ranked.map((row, i) => {
         const isMe = row.member.id === meId;
         return (
@@ -101,6 +105,7 @@ export function Leaderboard({
           </li>
         );
       })}
-    </ol>
+      </ol>
+    </div>
   );
 }

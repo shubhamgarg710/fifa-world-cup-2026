@@ -15,7 +15,11 @@ export type Picks = {
   winner: string | null;
   goldenBoot: string | null; // player name
   goldenBall: string | null; // player name
+  /** Stages the member has manually locked (final, irreversible). */
+  lockedStages: StageKey[];
 };
+
+const ALL_STAGES: StageKey[] = ['reachR32', 'reachR16', 'reachQF', 'reachSF', 'reachFinal'];
 
 export const EMPTY_PICKS: Picks = {
   reachR32: [],
@@ -26,6 +30,7 @@ export const EMPTY_PICKS: Picks = {
   winner: null,
   goldenBoot: null,
   goldenBall: null,
+  lockedStages: [],
 };
 
 export type League = {
@@ -56,5 +61,8 @@ export function normalizePicks(raw: unknown): Picks {
     winner: str(r.winner),
     goldenBoot: str(r.goldenBoot),
     goldenBall: str(r.goldenBall),
+    lockedStages: Array.isArray(r.lockedStages)
+      ? (r.lockedStages.filter((s): s is StageKey => typeof s === 'string' && (ALL_STAGES as string[]).includes(s)))
+      : [],
   };
 }
