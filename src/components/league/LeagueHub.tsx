@@ -1,7 +1,8 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
-import { leagueEnabled } from '@/data/supabase';
-import { useMyLeagues } from '@/state/leagueIdentity';
+import { leagueEnabled, supabase } from '@/data/supabase';
+import { getIdentity, setIdentity, useMyLeagues } from '@/state/leagueIdentity';
 import { LeagueShell } from './LeagueShell';
 import { CreateLeague } from './CreateLeague';
 import { JoinByCode } from './JoinByCode';
@@ -10,6 +11,28 @@ import { NotConfigured } from './NotConfigured';
 export function LeagueHub() {
   if (!leagueEnabled) return <NotConfigured />;
   const leagues = useMyLeagues();
+
+  // Backfill league names for entries saved before names were persisted.
+  useEffect(() => {
+    const missing = leagues.filter((l) => !l.leagueName).map((l) => l.code);
+    if (missing.length === 0 || !supabase) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase!
+        .from('leagues')
+        .select('code,name')
+        .in('code', missing);
+      if (cancelled || !data) return;
+      for (const row of data as { code: string; name: string }[]) {
+        const id = getIdentity(row.code);
+        if (id) setIdentity(row.code, { ...id, leagueName: row.name });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [leagues]);
+
   return (
     <LeagueShell title="Leagues" subtitle="Predict with friends">
       <div className="flex flex-col gap-4">
@@ -27,9 +50,11 @@ export function LeagueHub() {
                   >
                     <div>
                       <span className="font-display text-lg font-bold uppercase tracking-wide text-slate-50">
-                        {l.code}
+                        {l.leagueName ?? l.code}
                       </span>
-                      <p className="text-xs text-slate-400">Playing as {l.displayName}</p>
+                      <p className="text-xs text-slate-400">
+                        {l.leagueName ? `${l.code} · ` : ''}Playing as {l.displayName}
+                      </p>
                     </div>
                     <ChevronRight className="h-5 w-5 text-slate-500" aria-hidden />
                   </Link>

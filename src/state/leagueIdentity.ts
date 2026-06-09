@@ -8,7 +8,7 @@ import { normalizeCode } from '@/data/league/codes';
 
 const KEY = 'wc26.leagues.v1';
 
-export type Identity = { memberId: string; displayName: string };
+export type Identity = { memberId: string; displayName: string; leagueName?: string };
 type IdentityMap = Record<string, Identity>;
 
 function readAll(): IdentityMap {
@@ -22,7 +22,11 @@ function readAll(): IdentityMap {
     for (const [code, val] of Object.entries(parsed as Record<string, unknown>)) {
       const v = val as Partial<Identity>;
       if (v && typeof v.memberId === 'string' && typeof v.displayName === 'string') {
-        out[code] = { memberId: v.memberId, displayName: v.displayName };
+        out[code] = {
+          memberId: v.memberId,
+          displayName: v.displayName,
+          ...(typeof v.leagueName === 'string' ? { leagueName: v.leagueName } : {}),
+        };
       }
     }
     return out;
@@ -86,8 +90,10 @@ export function useLeagueIdentity(code: string): Identity | null {
   return value;
 }
 
+export type MyLeague = { code: string; displayName: string; leagueName?: string };
+
 /** React hook: all leagues this device belongs to (for the hub). */
-export function useMyLeagues(): { code: string; displayName: string }[] {
+export function useMyLeagues(): MyLeague[] {
   const [value, setValue] = useState(() => toList(getIdentities()));
   useEffect(() => {
     const cb = () => setValue(toList(getIdentities()));
@@ -105,6 +111,10 @@ export function useMyLeagues(): { code: string; displayName: string }[] {
   return value;
 }
 
-function toList(map: IdentityMap): { code: string; displayName: string }[] {
-  return Object.entries(map).map(([code, v]) => ({ code, displayName: v.displayName }));
+function toList(map: IdentityMap): MyLeague[] {
+  return Object.entries(map).map(([code, v]) => ({
+    code,
+    displayName: v.displayName,
+    leagueName: v.leagueName,
+  }));
 }

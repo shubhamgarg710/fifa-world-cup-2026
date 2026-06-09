@@ -42,4 +42,16 @@ describe('leagueIdentity', () => {
     expect(getIdentity('AAAAAA')).toBeNull(); // missing displayName
     expect(getIdentity('BBBBBB')).toEqual({ memberId: 'm2', displayName: 'Bob' });
   });
+
+  it('round-trips the optional leagueName', () => {
+    setIdentity('AAAAAA', { memberId: 'm1', displayName: 'Alice', leagueName: 'Envil' });
+    expect(getIdentity('AAAAAA')).toEqual({ memberId: 'm1', displayName: 'Alice', leagueName: 'Envil' });
+  });
+
+  it('loads pre-fix entries without a leagueName (backward compatible)', () => {
+    localStorage.setItem('wc26.leagues.v1', JSON.stringify({ AAAAAA: { memberId: 'm1', displayName: 'Alice' } }));
+    const id = getIdentity('AAAAAA');
+    expect(id).toEqual({ memberId: 'm1', displayName: 'Alice' });
+    expect(id?.leagueName).toBeUndefined();
+  });
 });

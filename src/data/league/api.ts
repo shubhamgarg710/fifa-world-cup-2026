@@ -50,7 +50,7 @@ export async function createLeague(name: string, displayName: string): Promise<s
     .single();
   if (memberErr) throw memberErr;
 
-  setIdentity(code, { memberId: data.id, displayName: cleanDisplay });
+  setIdentity(code, { memberId: data.id, displayName: cleanDisplay, leagueName: cleanName });
   return code;
 }
 
@@ -95,7 +95,7 @@ export async function joinLeague(code: string, displayName: string): Promise<Mem
   const cleanDisplay = validateDisplayName(displayName);
 
   // Confirm the league exists first → distinct, clear error for a bad code.
-  await getLeague(norm);
+  const league = await getLeague(norm);
 
   const { data, error } = await sb
     .from('members')
@@ -107,7 +107,7 @@ export async function joinLeague(code: string, displayName: string): Promise<Mem
     throw error;
   }
   const member = { ...data, picks: normalizePicks(data.picks) } as Member;
-  setIdentity(norm, { memberId: member.id, displayName: cleanDisplay });
+  setIdentity(norm, { memberId: member.id, displayName: cleanDisplay, leagueName: league.name });
   return member;
 }
 
