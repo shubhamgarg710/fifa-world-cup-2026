@@ -1,0 +1,324 @@
+{
+  "events": [
+    {
+      "id": "760415",
+      "date": "2026-06-11T19:00Z",
+      "name": "South Africa at Mexico",
+      "competitions": [
+        {
+          "status": {
+            "type": {
+              "name": "STATUS_FULL_TIME"
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "2",
+              "team": {
+                "id": "203",
+                "displayName": "Mexico"
+              }
+            },
+            {
+              "homeAway": "away",
+              "score": "0",
+              "team": {
+                "id": "467",
+                "displayName": "South Africa"
+              }
+            }
+          ],
+          "details": [
+            {
+              "type": {
+                "text": "Goal"
+              },
+              "clock": {
+                "displayValue": "9'"
+              },
+              "scoringPlay": true,
+              "penaltyKick": false,
+              "ownGoal": false,
+              "yellowCard": false,
+              "redCard": false,
+              "team": {
+                "id": "203"
+              },
+              "athletesInvolved": [
+                {
+                  "displayName": "Julián Quiñones"
+                }
+              ]
+            },
+            {
+              "type": {
+                "text": "Yellow Card"
+              },
+              "clock": {
+                "displayValue": "17'"
+              },
+              "scoringPlay": false,
+              "penaltyKick": false,
+              "ownGoal": false,
+              "yellowCard": true,
+              "redCard": false,
+              "team": {
+                "id": "467"
+              },
+              "athletesInvolved": [
+                {
+                  "displayName": "Teboho Mokoena"
+                }
+              ]
+            },
+            {
+              "type": {
+                "text": "Yellow Card"
+              },
+              "clock": {
+                "displayValue": "23'"
+              },
+              "scoringPlay": false,
+              "penaltyKick": false,
+              "ownGoal": false,
+              "yellowCard": true,
+              "redCard": false,
+              "team": {
+                "id": "203"
+              },
+              "athletesInvolved": [
+                {
+                  "displayName": "Brian Gutiérrez"
+                }
+              ]
+            },
+            {
+              "type": {
+                "text": "Red Card"
+              },
+              "clock": {
+                "displayValue": "49'"
+              },
+              "scoringPlay": false,
+              "penaltyKick": false,
+              "ownGoal": false,
+              "yellowCard": false,
+              "redCard": true,
+              "team": {
+                "id": "467"
+              },
+              "athletesInvolved": [
+                {
+                  "displayName": "Sphephelo Sithole"
+                }
+              ]
+            },
+            {
+              "type": {
+                "text": "Goal - Header"
+              },
+              "clock": {
+                "displayValue": "67'"
+              },
+              "scoringPlay": true,
+              "penaltyKick": false,
+              "ownGoal": false,
+              "yellowCard": false,
+              "redCard": false,
+              "team": {
+                "id": "203"
+              },
+              "athletesInvolved": [
+                {
+                  "displayName": "Raúl Jiménez"
+                }
+              ]
+            },
+            {
+              "type": {
+                "text": "Yellow Card"
+              },
+              "clock": {
+                "displayValue": "74'"
+              },
+              "scoringPlay": false,
+              "penaltyKick": false,
+              "ownGoal": false,
+              "yellowCard": true,
+              "redCard": false,
+              "team": {
+                "id": "467"
+              },
+              "athletesInvolved": [
+                {
+                  "displayName": "Nkosinathi Sibisi"
+                }
+              ]
+            },
+            {
+              "type": {
+                "text": "Red Card"
+              },
+              "clock": {
+                "displayValue": "84'"
+              },
+              "scoringPlay": false,
+              "penaltyKick": false,
+              "ownGoal": false,
+              "yellowCard": false,
+              "redCard": true,
+              "team": {
+                "id": "467"
+              },
+              "athletesInvolved": [
+                {
+                  "displayName": "Themba Zwane"
+                }
+              ]
+            },
+            {
+              "type": {
+                "text": "Red Card"
+              },
+              "clock": {
+                "displayValue": "90'+2'"
+              },
+              "scoringPlay": false,
+              "penaltyKick": false,
+              "ownGoal": false,
+              "yellowCard": false,
+              "redCard": true,
+              "team": {
+                "id": "203"
+              },
+              "athletesInvolved": [
+                {
+                  "displayName": "César Montes"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "760414",
+      "date": "2026-06-12T02:00Z",
+      "name": "Czechia at South Korea",
+      "competitions": [
+        {
+          "status": {
+            "type": {
+              "name": "STATUS_FULL_TIME"
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "2",
+              "team": {
+                "id": "451",
+                "displayName": "South Korea"
+              }
+            },
+            {
+              "homeAway": "away",
+              "score": "1",
+              "team": {
+                "id": "450",
+                "displayName": "Czechia"
+              }
+            }
+          ],
+          "details": [
+            {
+              "type": {
+                "text": "Goal - Header"
+              },
+              "clock": {
+                "displayValue": "59'"
+              },
+              "scoringPlay": true,
+              "penaltyKick": false,
+              "ownGoal": false,
+              "yellowCard": false,
+              "redCard": false,
+              "team": {
+                "id": "450"
+              },
+              "athletesInvolved": [
+                {
+                  "displayName": "Ladislav Krejcí"
+                }
+              ]
+            },
+            {
+              "type": {
+                "text": "Goal"
+              },
+              "clock": {
+                "displayValue": "67'"
+              },
+              "scoringPlay": true,
+              "penaltyKick": false,
+              "ownGoal": false,
+              "yellowCard": false,
+              "redCard": false,
+              "team": {
+                "id": "451"
+              },
+              "athletesInvolved": [
+                {
+                  "displayName": "Hwang In-Beom"
+                }
+              ]
+            },
+            {
+              "type": {
+                "text": "Goal"
+              },
+              "clock": {
+                "displayValue": "80'"
+              },
+              "scoringPlay": true,
+              "penaltyKick": false,
+              "ownGoal": false,
+              "yellowCard": false,
+              "redCard": false,
+              "team": {
+                "id": "451"
+              },
+              "athletesInvolved": [
+                {
+                  "displayName": "Oh Hyeon-Gyu"
+                }
+              ]
+            },
+            {
+              "type": {
+                "text": "Yellow Card"
+              },
+              "clock": {
+                "displayValue": "90'+6'"
+              },
+              "scoringPlay": false,
+              "penaltyKick": false,
+              "ownGoal": false,
+              "yellowCard": true,
+              "redCard": false,
+              "team": {
+                "id": "451"
+              },
+              "athletesInvolved": [
+                {
+                  "displayName": "Lee Gi-Hyuk"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

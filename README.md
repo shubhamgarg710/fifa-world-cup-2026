@@ -58,7 +58,7 @@ else works normally.
 
 ## What it does
 
-- Pulls fixtures + results from [openfootball/worldcup.json](https://github.com/openfootball/worldcup.json) (community-maintained, no API key).
+- Pulls fixtures from [openfootball/worldcup.json](https://github.com/openfootball/worldcup.json) (community-maintained, no API key), and overlays **fresher results** (status, score, goals) from ESPN's free soccer JSON on top — see Architecture.
 - Converts kickoff times to your device's time zone automatically.
 - Scores each match against the bundled FIFA ranking snapshot and assigns a verdict:
   - **Must-watch** — your team, big upset, knockout drama, late winner, goal fest, ET/penalties.
@@ -70,7 +70,7 @@ else works normally.
 ## Architecture
 
 Everything that touches data goes through one interface: `src/data/sources/types.ts → MatchDataSource`.
-The single implementation is `OpenFootballAdapter` in `src/data/sources/openFootball.ts`. To swap or supplement the data source later, write another adapter — no UI changes required.
+`OpenFootballAdapter` (`src/data/sources/openFootball.ts`) is the **fixtures backbone** — all 104 matches, the source of truth for which games exist. `MergedDataSource` (`src/data/sources/merged.ts`) composes it with `EspnAdapter` (`src/data/sources/espn.ts`), which overlays fresher **status/score/goals** from ESPN's free, keyless JSON (CORS-open, called client-side; one request covers the whole tournament). The two are matched by date + normalized team names (`teamAliases.ts` bridges e.g. "Czechia" → "Czech Republic"). ESPN failure is silent — the app falls back to openfootball-only — and the whole overlay can be killed with `VITE_DISABLE_ESPN=1` + redeploy. Fresher results flow into the leaderboard automatically, since league scoring reads the same merged `Match[]`.
 
 Scoring is pure functions in `src/logic/verdict.ts`. Thresholds live in `src/logic/config.ts`.
 

@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { OpenFootballAdapter } from './sources/openFootball';
 import { DemoAdapter } from './sources/demo';
+import { EspnAdapter } from './sources/espn';
+import { MergedDataSource } from './sources/merged';
 import type { Match, MatchDataSource } from './sources/types';
 
 /** How far back a "Recent" match can sit before it drops off the home screen. */
@@ -16,7 +18,18 @@ function isDemoMode(): boolean {
   }
 }
 
-let adapter: MatchDataSource = isDemoMode() ? new DemoAdapter() : new OpenFootballAdapter();
+/** Kill-switch: set VITE_DISABLE_ESPN=1 to fall back to openfootball-only. */
+const espnDisabled = ['1', 'true'].includes(String(import.meta.env.VITE_DISABLE_ESPN ?? '').toLowerCase());
+
+function makeAdapter(): MatchDataSource {
+  if (isDemoMode()) return new DemoAdapter(); // 2022 data → ESPN (2026) bypassed
+  const openfootball = new OpenFootballAdapter();
+  if (espnDisabled) return openfootball;
+  // openfootball = fixtures backbone; ESPN overlays fresher results (best-effort).
+  return new MergedDataSource(openfootball, new EspnAdapter());
+}
+
+let adapter: MatchDataSource = makeAdapter();
 
 /** Swap the adapter (used in tests / stories). */
 export function setDataSource(source: MatchDataSource): void {

@@ -43,6 +43,13 @@ describe('goldenBoot tally', () => {
   it('handles no goals', () => {
     expect(topScorers([])).toEqual({ names: [], goals: 0 });
   });
+
+  it('tallies ESPN-style accented scorer names verbatim', () => {
+    const matches = [
+      m([{ name: 'Julián Quiñones', minute: 9 }, { name: 'Julián Quiñones', minute: 67 }], [{ name: 'X', minute: 80 }]),
+    ];
+    expect(topScorers(matches)).toEqual({ names: ['Julián Quiñones'], goals: 2 });
+  });
 });
 
 describe('normalizeScorer', () => {
