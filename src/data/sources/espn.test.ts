@@ -33,7 +33,7 @@ describe('EspnAdapter.fetchOverlay', () => {
 
 describe('parse helpers (via overlay output)', () => {
   it('falls back to openfootball-shaped goals with offset/penalty/owngoal flags', async () => {
-    // Synthetic event exercising "90+2'", penalty, and own goal.
+    // Synthetic event exercising the real stoppage format "90'+2'", penalty, and own goal.
     const synthetic = {
       events: [
         {
@@ -46,8 +46,9 @@ describe('parse helpers (via overlay output)', () => {
                 { team: { id: '2', displayName: 'France' }, score: '1' },
               ],
               details: [
-                { type: { text: 'Goal - Penalty' }, clock: { displayValue: "90+2'" }, scoringPlay: true, penaltyKick: true, team: { id: '1' }, athletesInvolved: [{ displayName: 'Neymar' }] },
-                { type: { text: 'Own Goal' }, clock: { displayValue: "55'" }, scoringPlay: true, ownGoal: true, team: { id: '1' }, athletesInvolved: [{ displayName: 'Some Defender' }] },
+                { type: { text: 'Goal - Penalty' }, clock: { displayValue: "90'+2'" }, scoringPlay: true, penaltyKick: true, team: { id: '1' }, athletesInvolved: [{ displayName: 'Neymar' }] },
+                // Own goal as ESPN can emit it: type.text only, no scoringPlay flag.
+                { type: { text: 'Own Goal' }, clock: { displayValue: "55'" }, ownGoal: true, team: { id: '1' }, athletesInvolved: [{ displayName: 'Some Defender' }] },
                 { type: { text: 'Yellow Card' }, clock: { displayValue: "30'" }, scoringPlay: false, team: { id: '2' }, athletesInvolved: [{ displayName: 'Carded Guy' }] },
               ],
             },
@@ -57,10 +58,17 @@ describe('parse helpers (via overlay output)', () => {
     };
     const a = new EspnAdapter('x', async () => synthetic as never);
     const overlay = await a.fetchOverlay();
-    const goals = overlay.get(fixtureKey('2026-06-20', 'Brazil', 'France'))!.goalsByTeamKey[teamKey('Brazil')];
-    expect(goals).toHaveLength(2); // 2 goals, card ignored
-    const pen = goals.find((g) => g.name === 'Neymar')!;
-    expect(pen).toMatchObject({ minute: 90, offset: 2, penalty: true });
-    expect(goals.find((g) => g.owngoal)?.name).toBe('Some Defender');
+    const byKey = overlay.get(fixtureKey('2026-06-20', 'Brazil', 'France'))!.goalsByTeamKey;
+
+    // Brazil keeps its real goal (Neymar's penalty); card ignored.
+    const brazil = byKey[teamKey('Brazil')];
+    expect(brazil).toHaveLength(1);
+    expect(brazil[0]).toMatchObject({ name: 'Neymar', minute: 90, offset: 2, penalty: true });
+
+    // ESPN credited the own goal to Brazil (beneficiary); we re-attribute it to
+    // the conceding team (France) with owngoal:true. Caught despite no scoringPlay.
+    const france = byKey[teamKey('France')];
+    expect(france).toHaveLength(1);
+    expect(france[0]).toMatchObject({ name: 'Some Defender', minute: 55, owngoal: true });
   });
 });

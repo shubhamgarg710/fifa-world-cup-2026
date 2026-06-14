@@ -27,16 +27,20 @@ function mapStatus(name: string | undefined): MatchStatus {
   return 'result_pending'; // in-progress, halftime, extra time, etc.
 }
 
-/** "9'" → {minute:9}; "90+2'" → {minute:90, offset:2}. */
+/** "9'" → {minute:9}; "90'+4'" / "90+4'" → {minute:90, offset:4}. */
 function parseClock(display: string | undefined): { minute: number; offset?: number } {
-  const m = (display ?? '').match(/^(\d+)(?:\s*\+\s*(\d+))?/);
-  if (!m) return { minute: 0 };
-  const minute = Number(m[1]);
-  return m[2] ? { minute, offset: Number(m[2]) } : { minute };
+  const s = display ?? '';
+  const base = s.match(/(\d+)/); // first run of digits = the minute
+  if (!base) return { minute: 0 };
+  const plus = s.match(/\+\s*(\d+)/); // stoppage offset, e.g. the "4" in 90'+4'
+  const minute = Number(base[1]);
+  return plus ? { minute, offset: Number(plus[1]) } : { minute };
 }
 
+// Own goals are flagged via `ownGoal` (their type.text is "Own Goal", which the
+// /goal/i text check also catches); regular goals via scoringPlay or "Goal…".
 const isGoal = (d: EspnDetail): boolean =>
-  d.scoringPlay === true || /^goal/i.test(d.type?.text ?? '');
+  d.scoringPlay === true || d.ownGoal === true || /goal/i.test(d.type?.text ?? '');
 
 // --- raw ESPN shapes (only the fields we read) ---
 type EspnAthlete = { displayName?: string };
@@ -95,10 +99,18 @@ export class EspnAdapter {
       }
 
       const goalsByTeamKey: Record<string, GoalEntry[]> = {};
+      const keys = [...idToKey.values()];
       for (const d of comp?.details ?? []) {
         if (!isGoal(d)) continue;
-        const k = d.team?.id ? idToKey.get(d.team.id) : undefined;
+        let k = d.team?.id ? idToKey.get(d.team.id) : undefined;
         if (!k) continue;
+        // ESPN credits an own goal to the team that BENEFITED. Our verdict and
+        // GoalTimeline expect it under the *conceding* team with `owngoal:true`
+        // re-attributing it (matching openfootball). Flip to that convention,
+        // or it double-counts (credited team, then flipped away).
+        if (d.ownGoal && keys.length === 2) {
+          k = keys[0] === k ? keys[1] : keys[0];
+        }
         const { minute, offset } = parseClock(d.clock?.displayValue);
         const entry: GoalEntry = {
           name: d.athletesInvolved?.[0]?.displayName ?? 'Unknown',
