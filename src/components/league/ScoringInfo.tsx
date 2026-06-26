@@ -1,15 +1,21 @@
 import { useState } from 'react';
 import { ChevronDown, HelpCircle } from 'lucide-react';
 import { LEAGUE_SCORING } from '@/logic/leagueConfig';
+import { STAGE_DEFS } from '@/logic/leagueStages';
 import { cn } from '../cn';
 
-/** Transparent breakdown of how points are earned — sourced from LEAGUE_SCORING. */
+/**
+ * Transparent breakdown of how points are earned. Stage rows derive from
+ * STAGE_DEFS so the labels always match the pick UI (the contested round).
+ */
 const ROWS: { label: string; detail: string }[] = [
-  { label: 'Group survivors', detail: `${LEAGUE_SCORING.reachR32} pts each — only if you pick a full set of 32` },
-  { label: 'Reach Round of 16', detail: `${LEAGUE_SCORING.reachR16} pts each` },
-  { label: 'Reach Quarter-finals', detail: `${LEAGUE_SCORING.reachQF} pts each` },
-  { label: 'Reach Semi-finals', detail: `${LEAGUE_SCORING.reachSF} pts each` },
-  { label: 'Reach Final', detail: `${LEAGUE_SCORING.reachFinal} pts each` },
+  ...STAGE_DEFS.map((d) => ({
+    label: d.label,
+    detail:
+      d.key === 'reachR32'
+        ? `${LEAGUE_SCORING.reachR32} pts each — only if you pick a full set of 32`
+        : `${LEAGUE_SCORING[d.key]} pts per correct pick`,
+  })),
   { label: 'World Cup winner', detail: `${LEAGUE_SCORING.winner} pts` },
   { label: 'Golden Boot', detail: `${LEAGUE_SCORING.goldenBoot} pts` },
   { label: 'Golden Ball', detail: `${LEAGUE_SCORING.goldenBall} pts` },

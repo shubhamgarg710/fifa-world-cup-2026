@@ -60,12 +60,15 @@ export type StageDef = {
   actualRound: string;
 };
 
+// Knockout stages are labelled by the round whose ties you're picking (the
+// `poolRound` shown in the matchwise UI), not the round teams advance into. So
+// `reachR16` (predict winners of the Round-of-32 ties) reads "Round of 32".
 export const STAGE_DEFS: StageDef[] = [
   { key: 'reachR32', label: 'Group survivors', pick: 32, preTournament: true, poolRound: null, actualRound: ROUND.R32 },
-  { key: 'reachR16', label: 'Round of 16', pick: 16, preTournament: false, poolRound: ROUND.R32, actualRound: ROUND.R16 },
-  { key: 'reachQF', label: 'Quarter-finals', pick: 8, preTournament: false, poolRound: ROUND.R16, actualRound: ROUND.QF },
-  { key: 'reachSF', label: 'Semi-finals', pick: 4, preTournament: false, poolRound: ROUND.QF, actualRound: ROUND.SF },
-  { key: 'reachFinal', label: 'Final', pick: 2, preTournament: false, poolRound: ROUND.SF, actualRound: ROUND.FINAL },
+  { key: 'reachR16', label: 'Round of 32', pick: 16, preTournament: false, poolRound: ROUND.R32, actualRound: ROUND.R16 },
+  { key: 'reachQF', label: 'Round of 16', pick: 8, preTournament: false, poolRound: ROUND.R16, actualRound: ROUND.QF },
+  { key: 'reachSF', label: 'Quarter-finals', pick: 4, preTournament: false, poolRound: ROUND.QF, actualRound: ROUND.SF },
+  { key: 'reachFinal', label: 'Semi-finals', pick: 2, preTournament: false, poolRound: ROUND.SF, actualRound: ROUND.FINAL },
 ];
 
 export function stageDef(key: StageKey): StageDef {
