@@ -18,6 +18,7 @@ import { RevealPanel } from './RevealPanel';
 import { DeadlineBanner } from './DeadlineBanner';
 import { BootLeader } from './BootLeader';
 import { WhatChanged } from './WhatChanged';
+import { PicksOpenNudge } from './PicksOpenNudge';
 import { cn } from '../cn';
 
 export function LeagueScreen() {
@@ -78,6 +79,7 @@ export function LeagueScreen() {
       <div className="mb-4 flex flex-col gap-3">
         <ShareCode code={code} />
         <WhatChanged code={code} meId={identity.memberId} members={members.data ?? []} matches={matches} />
+        <PicksOpenNudge code={code} meId={identity.memberId} matches={matches} />
         <DeadlineBanner matches={matches} />
         <BootLeader matches={matches} />
         {matches.some((m) => m.status === 'result_pending') && (

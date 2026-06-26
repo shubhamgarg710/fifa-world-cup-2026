@@ -48,6 +48,9 @@ export function KnockoutWizard({
         Pick the {cap} teams you think advance. {selected.length}/{cap} chosen.
         {deadline && ` Locks ${formatLocalDateLabel(deadline)} · ${formatLocalKickoff(deadline)}.`}
       </p>
+      {pool.length < cap && (
+        <p className="text-[11px] text-slate-500">More teams unlock as fixtures are confirmed.</p>
+      )}
 
       <TeamChipGrid
         teams={pool}

@@ -5,8 +5,10 @@
  *   reachR32  — predict the 32 group survivors. Pre-tournament; pool = 48 group
  *               teams; deadline = earliest kickoff overall (Jun 11). Always open.
  *   reachR16  — predict the 16 teams that win their Round-of-32 tie. Pool +
- *               deadline come from the "Round of 32" round; opens when those
- *               fixtures carry real team names.
+ *               deadline come from the "Round of 32" round; opens progressively
+ *               as those fixtures carry real team names (pick the matchups that
+ *               are already known without waiting for the whole bracket), and
+ *               locks 24h past the round's first kickoff (KNOCKOUT_GRACE_MS).
  *   reachQF   — from "Round of 16".
  *   reachSF   — from "Quarter-final".
  *   reachFinal— from "Semi-final".
@@ -36,6 +38,14 @@ export const ROUND = {
  * lock at their own kickoffs.
  */
 export const PRE_TOURNAMENT_LOCK_UTC = '2026-06-14T18:29:59Z';
+
+/**
+ * Grace past a knockout round's first kickoff before its pick locks. Mirrors the
+ * pre-tournament grace philosophy: the round's first matches will have finished
+ * inside this window (so a few advancers are already known when picked) — an
+ * accepted trade-off to give people more than the otherwise sub-day window.
+ */
+export const KNOCKOUT_GRACE_MS = 24 * 60 * 60 * 1000;
 
 export type StageDef = {
   key: StageKey;
@@ -94,19 +104,22 @@ export function leaguePool(matches: Match[]): string[] {
   return [...set].sort();
 }
 
-/** Candidate teams a member chooses from for a stage (empty until known). */
+/**
+ * Candidate teams a member chooses from for a stage. Grows progressively: as
+ * pool-round fixtures resolve to real teams, they appear here (the whole bracket
+ * need not be known). Empty until the first matchup is determined.
+ */
 export function stagePool(stage: StageKey, matches: Match[]): string[] {
   const def = stageDef(stage);
   if (def.poolRound === null) return leaguePool(matches);
-  if (!roundParticipantsKnown(matches, def.poolRound)) return [];
   return realTeamsInRound(matches, def.poolRound).sort();
 }
 
-/** A stage is open for editing once its candidate pool is known. */
+/** A stage is open for editing once *any* of its pool-round matchups is determined. */
 export function stageOpen(stage: StageKey, matches: Match[]): boolean {
   const def = stageDef(stage);
   if (def.preTournament) return true;
-  return def.poolRound !== null && roundParticipantsKnown(matches, def.poolRound);
+  return def.poolRound !== null && realTeamsInRound(matches, def.poolRound).length > 0;
 }
 
 const minKickoff = (ms: Match[]): string | null => {
@@ -116,9 +129,9 @@ const minKickoff = (ms: Match[]): string | null => {
 };
 
 /**
- * Deadline = the first kickoff of the round you're predicting *into* (once it
- * starts, its winners are no longer predictable). Pre-tournament → earliest
- * kickoff overall. null if unknown (round not yet scheduled).
+ * Deadline = the first kickoff of the round you're predicting *into*, plus a
+ * one-day grace (KNOCKOUT_GRACE_MS). Pre-tournament → fixed grace deadline.
+ * null if unknown (round not yet scheduled).
  */
 export function stageDeadlineUTC(stage: StageKey, matches: Match[]): string | null {
   const def = stageDef(stage);
@@ -126,8 +139,10 @@ export function stageDeadlineUTC(stage: StageKey, matches: Match[]): string | nu
   // latecomers can still enter — see PRE_TOURNAMENT_LOCK_UTC. Note: group games
   // begin June 11, so edits on the 12th–14th see partial results (accepted).
   if (def.preTournament) return PRE_TOURNAMENT_LOCK_UTC;
-  // Predicting reachR16 means predicting Round-of-32 winners → lock at first R32 KO.
-  return minKickoff(matchesInRound(matches, def.poolRound!));
+  // Predicting reachR16 means predicting Round-of-32 winners. Lock 24h past the
+  // first R32 kickoff (grace), accepting that the round's earliest results show.
+  const first = minKickoff(matchesInRound(matches, def.poolRound!));
+  return first ? new Date(new Date(first).getTime() + KNOCKOUT_GRACE_MS).toISOString() : null;
 }
 
 export function stageLocked(stage: StageKey, matches: Match[], now: Date): boolean {
@@ -159,6 +174,13 @@ export function nextLock(matches: Match[], now: Date): { stage: StageKey; deadli
     if (!best || deadline < best.deadlineUTC) best = { stage: def.key, deadlineUTC: deadline };
   }
   return best;
+}
+
+/** Knockout (non-pre-tournament) stages currently open for editing. */
+export function openKnockoutStages(matches: Match[], now: Date): StageKey[] {
+  return STAGE_DEFS.filter(
+    (d) => !d.preTournament && stageStatus(d.key, matches, now) === 'editable',
+  ).map((d) => d.key);
 }
 
 /**

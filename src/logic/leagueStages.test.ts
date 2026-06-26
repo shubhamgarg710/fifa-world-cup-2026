@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
+import type { Match } from '@/data/sources/types';
 import realFile from '@/data/sources/__fixtures__/worldcup.json';
 import wc2022 from '@/data/sources/__fixtures__/worldcup-2022.json';
 import { transformAll } from '@/data/sources/openFootball';
 import {
   champion,
+  KNOCKOUT_GRACE_MS,
   leaguePool,
   nextLock,
+  openKnockoutStages,
   PRE_TOURNAMENT_LOCK_UTC,
   ROUND,
   realTeamsInRound,
@@ -118,6 +121,46 @@ describe('stageStatus', () => {
   });
   it('sequential 2026 stages are pending (placeholders unresolved)', () => {
     expect(stageStatus('reachR16', matches2026, before)).toBe('pending');
+  });
+});
+
+describe('progressive opening + 1-day grace (synthetic R32 → reachR16)', () => {
+  // One Round-of-32 tie resolved (Brazil v Japan), one still placeholders.
+  const ko = (kickoffUTC: string, team1: string, team2: string): Match => ({
+    id: `${team1}-${team2}`,
+    round: ROUND.R32,
+    kickoffUTC,
+    ground: 'X',
+    team1,
+    team2,
+    status: 'scheduled',
+  });
+  const partial: Match[] = [
+    ko('2026-06-28T19:00:00.000Z', 'Brazil', 'Japan'), // determined
+    ko('2026-07-01T16:00:00.000Z', '1A', '2B'), // still placeholders
+  ];
+  const firstKO = '2026-06-28T19:00:00.000Z';
+  const deadline = new Date(new Date(firstKO).getTime() + KNOCKOUT_GRACE_MS).toISOString();
+
+  it('opens reachR16 as soon as one matchup is determined', () => {
+    expect(stageOpen('reachR16', partial)).toBe(true);
+  });
+  it('pool contains only the resolved teams so far', () => {
+    expect(stagePool('reachR16', partial)).toEqual(['Brazil', 'Japan']);
+  });
+  it('deadline is the first pool-round kickoff + 24h grace', () => {
+    expect(stageDeadlineUTC('reachR16', partial)).toBe(deadline);
+  });
+  it('stays editable during the grace (after first KO, before deadline)', () => {
+    // Old rule would have locked at 2026-06-28T19:00; the grace keeps it open.
+    expect(stageStatus('reachR16', partial, new Date('2026-06-29T06:00:00Z'))).toBe('editable');
+  });
+  it('locks once the grace deadline passes', () => {
+    expect(stageStatus('reachR16', partial, new Date('2026-06-29T20:00:00Z'))).toBe('locked');
+  });
+  it('openKnockoutStages lists the open stage and excludes locked/pending ones', () => {
+    expect(openKnockoutStages(partial, new Date('2026-06-29T06:00:00Z'))).toEqual(['reachR16']);
+    expect(openKnockoutStages(partial, new Date('2026-06-29T20:00:00Z'))).toEqual([]);
   });
 });
 
