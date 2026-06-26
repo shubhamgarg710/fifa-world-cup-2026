@@ -2,18 +2,17 @@ import { useState } from 'react';
 import { Loader2, Lock } from 'lucide-react';
 import type { Match } from '@/data/sources/types';
 import type { StageKey } from '@/data/league/types';
-import { stageDef, stageDeadlineUTC } from '@/logic/leagueStages';
+import { stageDef, stageDeadlineUTC, stageMatchups } from '@/logic/leagueStages';
 import { formatLocalDateLabel, formatLocalKickoff } from '@/logic/time';
-import { TeamChipGrid } from '../TeamChipGrid';
+import { KnockoutMatchupGrid } from './KnockoutMatchupGrid';
 import type { SaveStatus } from './useAutoSavePicks';
 
-/** Single-step knockout pick (pick N advancers) + lock — same auto-save model. */
+/** Single-step knockout pick (one advancer per tie) + lock — same auto-save model. */
 export function KnockoutWizard({
   stage,
   matches,
-  pool,
   selected,
-  onToggle,
+  onPick,
   onLock,
   locking,
   saveStatus,
@@ -21,9 +20,8 @@ export function KnockoutWizard({
 }: {
   stage: StageKey;
   matches: Match[];
-  pool: string[];
   selected: string[];
-  onToggle: (team: string) => void;
+  onPick: (team: string, sibling: string) => void;
   onLock: () => void;
   locking: boolean;
   saveStatus: SaveStatus;
@@ -31,6 +29,7 @@ export function KnockoutWizard({
 }) {
   const def = stageDef(stage);
   const cap = def.pick;
+  const matchups = stageMatchups(stage, matches);
   const deadline = stageDeadlineUTC(stage, matches);
   const [confirming, setConfirming] = useState(false);
 
@@ -45,20 +44,14 @@ export function KnockoutWizard({
         </span>
       </div>
       <p className="text-sm text-slate-400">
-        Pick the {cap} teams you think advance. {selected.length}/{cap} chosen.
+        Pick who advances in each tie. {selected.length}/{cap} chosen.
         {deadline && ` Locks ${formatLocalDateLabel(deadline)} · ${formatLocalKickoff(deadline)}.`}
       </p>
-      {pool.length < cap && (
-        <p className="text-[11px] text-slate-500">More teams unlock as fixtures are confirmed.</p>
+      {matchups.length < cap && (
+        <p className="text-[11px] text-slate-500">More ties unlock as fixtures are confirmed.</p>
       )}
 
-      <TeamChipGrid
-        teams={pool}
-        selected={new Set(selected)}
-        onToggle={onToggle}
-        tone="positive"
-        isDisabledTeam={() => selected.length >= cap}
-      />
+      <KnockoutMatchupGrid matchups={matchups} selected={new Set(selected)} onPick={onPick} />
 
       {confirming ? (
         <div className="rounded-2xl border border-gold/40 bg-gold/10 p-4">

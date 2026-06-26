@@ -14,6 +14,7 @@ import {
   realTeamsInRound,
   roundParticipantsKnown,
   stageDeadlineUTC,
+  stageMatchups,
   stageOpen,
   stagePool,
   stageStatus,
@@ -121,6 +122,31 @@ describe('stageStatus', () => {
   });
   it('sequential 2026 stages are pending (placeholders unresolved)', () => {
     expect(stageStatus('reachR16', matches2026, before)).toBe('pending');
+  });
+});
+
+describe('stageMatchups', () => {
+  it('returns the 8 Round-of-16 ties for 2022 (reachQF pool), sorted by kickoff', () => {
+    const ties = stageMatchups('reachQF', matches2022);
+    expect(ties).toHaveLength(8);
+    expect(ties.every((t) => t.team1 && t.team2 && t.kickoffUTC)).toBe(true);
+    const kicks = ties.map((t) => t.kickoffUTC);
+    expect([...kicks].sort()).toEqual(kicks); // already ascending
+  });
+  it('is empty for 2026 (all knockout fixtures still placeholders)', () => {
+    expect(stageMatchups('reachR16', matches2026)).toEqual([]);
+  });
+  it('is empty for pre-tournament reachR32 (no bracket ties)', () => {
+    expect(stageMatchups('reachR32', matches2022)).toEqual([]);
+  });
+  it('excludes half-formed ties (one side still a placeholder)', () => {
+    const half = [
+      { id: 'a', round: ROUND.R32, kickoffUTC: '2026-06-28T19:00:00.000Z', ground: 'X', team1: 'Brazil', team2: 'Japan', status: 'scheduled' as const },
+      { id: 'b', round: ROUND.R32, kickoffUTC: '2026-06-29T19:00:00.000Z', ground: 'X', team1: 'France', team2: '2B', status: 'scheduled' as const },
+    ];
+    expect(stageMatchups('reachR16', half)).toEqual([
+      { team1: 'Brazil', team2: 'Japan', kickoffUTC: '2026-06-28T19:00:00.000Z' },
+    ]);
   });
 });
 

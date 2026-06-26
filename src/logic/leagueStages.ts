@@ -115,11 +115,27 @@ export function stagePool(stage: StageKey, matches: Match[]): string[] {
   return realTeamsInRound(matches, def.poolRound).sort();
 }
 
-/** A stage is open for editing once *any* of its pool-round matchups is determined. */
+/** One pool-round tie with both teams resolved: "team1 vs team2 — who advances?". */
+export type StageMatchup = { team1: string; team2: string; kickoffUTC: string };
+
+/**
+ * The determined ties of a stage's pool round — fixtures where *both* teams are
+ * real (placeholder-free) — sorted by kickoff. Grows as the bracket resolves.
+ */
+export function stageMatchups(stage: StageKey, matches: Match[]): StageMatchup[] {
+  const def = stageDef(stage);
+  if (def.poolRound === null) return [];
+  return matchesInRound(matches, def.poolRound)
+    .filter((m) => !isPlaceholderTeam(m.team1) && !isPlaceholderTeam(m.team2))
+    .map((m) => ({ team1: m.team1, team2: m.team2, kickoffUTC: m.kickoffUTC }))
+    .sort((a, b) => (a.kickoffUTC < b.kickoffUTC ? -1 : 1));
+}
+
+/** A stage is open for editing once at least one of its ties is fully determined. */
 export function stageOpen(stage: StageKey, matches: Match[]): boolean {
   const def = stageDef(stage);
   if (def.preTournament) return true;
-  return def.poolRound !== null && realTeamsInRound(matches, def.poolRound).length > 0;
+  return def.poolRound !== null && stageMatchups(stage, matches).length > 0;
 }
 
 const minKickoff = (ms: Match[]): string | null => {

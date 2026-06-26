@@ -7,7 +7,7 @@ import { useSavePicks } from '@/data/league/queries';
 import { filterCandidatesToPool, goldenBallCandidates, goldenBootCandidates } from '@/data/static/awards';
 import { teamFlag } from '@/data/static';
 import { deriveGroups } from '@/logic/groups';
-import { leaguePool, stageDeadlineUTC, stageDef, stagePool, stageStatus } from '@/logic/leagueStages';
+import { leaguePool, stageDeadlineUTC, stageDef, stageStatus } from '@/logic/leagueStages';
 import { pickStatus, type PickStatus } from '@/logic/leagueScore';
 import {
   ELIMINATE_TARGET,
@@ -141,14 +141,16 @@ export function MyPicks({
     });
   };
 
-  const toggleKo = (stage: StageKey, team: string) => {
-    const cap = stageDef(stage).pick;
+  // Matchwise pick: choose `team` to advance over its tie's `sibling`. Drop both
+  // sides of the tie first, then (re)add `team` unless it was already picked
+  // (tap-again clears the tie). One winner per tie.
+  const pickKo = (stage: StageKey, team: string, sibling: string) => {
     setDirty(true);
     setKo((prev) => {
       const cur = prev[stage];
-      const has = cur.includes(team);
-      const nextArr = has ? cur.filter((t) => t !== team) : cur.length < cap ? [...cur, team] : cur;
-      return { ...prev, [stage]: nextArr };
+      const wasPicked = cur.includes(team);
+      const without = cur.filter((t) => t !== team && t !== sibling);
+      return { ...prev, [stage]: wasPicked ? without : [...without, team] };
     });
   };
 
@@ -225,9 +227,8 @@ export function MyPicks({
             key={stage}
             stage={stage}
             matches={matches}
-            pool={stagePool(stage, matches)}
             selected={ko[stage]}
-            onToggle={(t) => toggleKo(stage, t)}
+            onPick={(t, sib) => pickKo(stage, t, sib)}
             onLock={() => lockStage(stage)}
             locking={save.isPending}
             saveStatus={saveStatus}
