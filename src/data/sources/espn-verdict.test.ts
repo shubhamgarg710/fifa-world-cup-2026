@@ -51,7 +51,7 @@ const noRank = () => undefined;
 describe('ESPN stoppage-time own goal → verdict', () => {
   it('flags Qatar 1–1 Switzerland as must-watch (late equalizer), not skip', async () => {
     const adapter = new EspnAdapter('unused', async () => QATAR_SWISS_EVENT as never);
-    const overlay = await adapter.fetchOverlay();
+    const { results: overlay } = await adapter.fetchOverlay();
 
     // overlay actually keyed this match
     expect(overlay.has(fixtureKey('2026-06-13', 'Switzerland', 'Qatar'))).toBe(true);

@@ -20,6 +20,7 @@ const ALIASES: Record<string, string> = {
   'congo-dr': 'DR Congo',
   'dr-congo': 'DR Congo',
   'bosnia-and-herzegovina': 'Bosnia & Herzegovina',
+  'bosnia-herzegovina': 'Bosnia & Herzegovina', // ESPN drops the "and"
 };
 
 /** Map any source's team name to our canonical name (passthrough if unknown). */

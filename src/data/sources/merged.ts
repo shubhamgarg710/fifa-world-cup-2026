@@ -1,6 +1,9 @@
+import { isKnockout } from '@/logic/verdict';
+import { isPlaceholderTeam } from '@/data/static/placeholders';
 import type { DateRange, Match, MatchDataSource, Score } from './types';
+import { matchId } from './types';
 import type { OpenFootballAdapter } from './openFootball';
-import type { EspnAdapter, MatchOverlay } from './espn';
+import type { BracketTie, EspnAdapter, MatchOverlay } from './espn';
 import { fixtureKey, teamKey } from './teamAliases';
 
 /**
@@ -20,15 +23,18 @@ export class MergedDataSource implements MatchDataSource {
   private async loadAll(): Promise<Match[]> {
     if (this.cache) return this.cache;
     const base = await this.fixtures.listAll();
-    let overlay = new Map<string, MatchOverlay>();
+    let results = new Map<string, MatchOverlay>();
+    let bracket = new Map<string, BracketTie>();
     try {
-      overlay = await this.espn.fetchOverlay();
+      ({ results, bracket } = await this.espn.fetchOverlay());
     } catch (err) {
       // eslint-disable-next-line no-console
       console.warn('ESPN overlay failed, using openfootball only:', err);
     }
     const now = this.clock();
-    this.cache = base.map((m) => mergeMatch(m, overlay, now));
+    // First fill placeholder knockout ties from ESPN, then overlay results (the
+    // results lookup matches by team name, so it needs resolved teams first).
+    this.cache = base.map((m) => mergeMatch(resolveBracket(m, bracket), results, now));
     return this.cache;
   }
 
@@ -62,6 +68,37 @@ export class MergedDataSource implements MatchDataSource {
     if (!found) throw new Error(`Match not found: ${id}`);
     return found;
   }
+}
+
+/**
+ * Fill an openfootball knockout fixture's placeholder team(s) from ESPN's
+ * resolved bracket (matched by UTC kickoff minute), so a tie shows as soon as
+ * ESPN decides it instead of waiting for openfootball. Only fills placeholders —
+ * never overrides a team openfootball already resolved.
+ */
+export function resolveBracket(fixture: Match, bracket: Map<string, BracketTie>): Match {
+  if (!isKnockout(fixture.round)) return fixture;
+  const ph1 = isPlaceholderTeam(fixture.team1);
+  const ph2 = isPlaceholderTeam(fixture.team2);
+  if (!ph1 && !ph2) return fixture; // already resolved
+  const tie = bracket.get(fixture.kickoffUTC.slice(0, 16));
+  if (!tie) return fixture; // ESPN hasn't resolved this slot (or no time match)
+
+  let team1 = fixture.team1;
+  let team2 = fixture.team2;
+  if (ph1 && ph2) {
+    team1 = tie.home;
+    team2 = tie.away;
+  } else {
+    const known = ph1 ? fixture.team2 : fixture.team1;
+    const kk = teamKey(known);
+    if (!(teamKey(tie.home) === kk || teamKey(tie.away) === kk)) return fixture; // not this tie
+    const other = teamKey(tie.home) === kk ? tie.away : tie.home;
+    if (ph1) team1 = other;
+    else team2 = other;
+  }
+  const date = fixture.kickoffUTC.slice(0, 10);
+  return { ...fixture, team1, team2, id: matchId(date, team1, team2) };
 }
 
 /** Apply an ESPN overlay to one openfootball fixture, never regressing. */

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Match } from './types';
-import type { MatchOverlay } from './espn';
-import { mergeMatch } from './merged';
+import { matchId } from './types';
+import type { BracketTie, MatchOverlay } from './espn';
+import { mergeMatch, resolveBracket } from './merged';
 import { teamKey, fixtureKey } from './teamAliases';
 
 const NOW = new Date('2026-06-15T00:00:00Z');
@@ -64,5 +65,51 @@ describe('mergeMatch', () => {
     const o = overlayOf({ status: 'result_pending', scoreByTeamKey: {}, goalsByTeamKey: {} });
     const m = mergeMatch(fixture({ status: 'scheduled' }), o, NOW); // NOW is past the kickoff
     expect(m.status).toBe('result_pending');
+  });
+});
+
+describe('resolveBracket', () => {
+  const ko = (over: Partial<Match> = {}): Match => ({
+    id: 'x',
+    round: 'Round of 32',
+    kickoffUTC: '2026-07-03T22:00:00.000Z',
+    ground: 'X',
+    team1: '1J',
+    team2: '2H',
+    status: 'scheduled',
+    ...over,
+  });
+  const tieMap = (key: string, tie: BracketTie) => new Map([[key, tie]]);
+
+  it('fills a fully-placeholder tie from ESPN (by kickoff minute) + regenerates id', () => {
+    const m = resolveBracket(ko(), tieMap('2026-07-03T22:00', { home: 'Argentina', away: 'Cape Verde' }));
+    expect([m.team1, m.team2]).toEqual(['Argentina', 'Cape Verde']);
+    expect(m.id).toBe(matchId('2026-07-03', 'Argentina', 'Cape Verde'));
+  });
+
+  it('fills only the placeholder side, keeping the known team in its slot', () => {
+    const fx = ko({ team1: 'Germany', team2: '3A/B/C/D/F', kickoffUTC: '2026-06-29T20:30:00.000Z' });
+    const m = resolveBracket(fx, tieMap('2026-06-29T20:30', { home: 'Germany', away: 'Paraguay' }));
+    expect([m.team1, m.team2]).toEqual(['Germany', 'Paraguay']);
+  });
+
+  it('leaves the fixture unchanged when ESPN has no tie at that minute', () => {
+    expect(resolveBracket(ko(), new Map())).toEqual(ko());
+  });
+
+  it('does not touch an already-resolved fixture', () => {
+    const fx = ko({ team1: 'Brazil', team2: 'Japan' });
+    expect(resolveBracket(fx, tieMap('2026-07-03T22:00', { home: 'X', away: 'Y' }))).toEqual(fx);
+  });
+
+  it('ignores non-knockout (group) fixtures', () => {
+    const grp = ko({ round: 'Matchday 1', team1: '1A', team2: '2B' });
+    expect(resolveBracket(grp, tieMap('2026-07-03T22:00', { home: 'A', away: 'B' }))).toEqual(grp);
+  });
+
+  it('skips when the ESPN tie does not contain the known team (mismatch guard)', () => {
+    const fx = ko({ team1: 'Germany', team2: '3A/B/C/D/F', kickoffUTC: '2026-06-29T20:30:00.000Z' });
+    const m = resolveBracket(fx, tieMap('2026-06-29T20:30', { home: 'France', away: 'Sweden' }));
+    expect([m.team1, m.team2]).toEqual(['Germany', '3A/B/C/D/F']);
   });
 });

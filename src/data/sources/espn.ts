@@ -1,5 +1,6 @@
+import { allQualifiedTeams } from '@/data/static';
 import type { GoalEntry, MatchStatus } from './types';
-import { fixtureKey, teamKey } from './teamAliases';
+import { canonicalTeam, fixtureKey, teamKey } from './teamAliases';
 
 /** ESPN soccer scoreboard — free, keyless, CORS `*`. One call covers the tournament. */
 export const ESPN_URL =
@@ -10,6 +11,16 @@ export type MatchOverlay = {
   status: MatchStatus;
   scoreByTeamKey: Record<string, number>;
   goalsByTeamKey: Record<string, GoalEntry[]>;
+};
+
+/** A knockout tie ESPN has fully resolved (both real teams), to fill openfootball placeholders. */
+export type BracketTie = { home: string; away: string };
+
+export type EspnSnapshot = {
+  /** Results overlay, keyed by date+team-pair (`fixtureKey`). */
+  results: Map<string, MatchOverlay>;
+  /** Resolved ties, keyed by UTC kickoff minute (`event.date.slice(0, 16)`). */
+  bracket: Map<string, BracketTie>;
 };
 
 type EspnFetcher = (url: string) => Promise<unknown>;
@@ -74,9 +85,11 @@ export class EspnAdapter {
     private readonly fetcher: EspnFetcher = defaultFetcher,
   ) {}
 
-  async fetchOverlay(): Promise<Map<string, MatchOverlay>> {
+  async fetchOverlay(): Promise<EspnSnapshot> {
     const data = (await this.fetcher(this.url)) as EspnScoreboard;
     const map = new Map<string, MatchOverlay>();
+    const bracket = new Map<string, BracketTie>();
+    const known = new Set(allQualifiedTeams());
     for (const ev of data.events ?? []) {
       const comp = ev.competitions?.[0];
       const competitors = comp?.competitors ?? [];
@@ -85,6 +98,16 @@ export class EspnAdapter {
       const dateYMD = ev.date.slice(0, 10);
       const names = competitors.map((c) => c.team?.displayName).filter((n): n is string => !!n);
       if (names.length < 2) continue;
+
+      // Bracket resolution: when ESPN has both real teams (not "Group L Winner"
+      // / "Third Place …" slots), record the tie so the merge can fill an
+      // openfootball placeholder fixture at the same kickoff minute.
+      if (known.has(canonicalTeam(names[0])) && known.has(canonicalTeam(names[1]))) {
+        bracket.set(ev.date.slice(0, 16), {
+          home: canonicalTeam(names[0]),
+          away: canonicalTeam(names[1]),
+        });
+      }
 
       // ESPN team.id → our teamKey, for attributing goals + scores.
       const idToKey = new Map<string, string>();
@@ -128,6 +151,6 @@ export class EspnAdapter {
         goalsByTeamKey,
       });
     }
-    return map;
+    return { results: map, bracket };
   }
 }
